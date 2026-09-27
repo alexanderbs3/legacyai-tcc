@@ -2,6 +2,8 @@ package com.legacyai.ai.claude;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
@@ -16,13 +18,29 @@ import java.util.Map;
 
 @Service
 public class ClaudeProvider implements AIProvider {
-    private static final String JSON_PROMPT = "Retorne somente JSON com summary, technologies, architecture, problems, securityRisks, recommendations, modernization.";
+    private static final String JSON_PROMPT = """
+            Retorne SOMENTE um objeto JSON válido, sem texto adicional, sem markdown.
+            O JSON deve seguir EXATAMENTE este esquema:
+            {
+              "summary": "string com visão geral",
+              "technologies": ["string", "string"],
+              "architecture": "string descrevendo a arquitetura",
+              "problems": [{"title": "string", "description": "string", "priority": "HIGH"}],
+              "securityRisks": [{"title": "string", "description": "string", "priority": "MEDIUM"}],
+              "recommendations": [{"title": "string", "description": "string", "priority": "HIGH"}],
+              "modernization": ["string", "string"]
+            }
+            Prioridades válidas: HIGH, MEDIUM, LOW.
+            problems, securityRisks e recommendations DEVEM ser listas de objetos com
+            title (string), description (string) e priority (HIGH|MEDIUM|LOW).
+            NUNCA retorne essas listas como listas de strings.
+            """;
 
     private final String key;
     private final String model;
 
     public ClaudeProvider(@Value("${ai.claude.api-key:}") String key,
-                          @Value("${ai.claude.model:claude-3-5-haiku-20241022}") String model) {
+                          @Value("${ai.claude.model:claude-haiku-4-5}") String model) {
         this.key = key;
         this.model = model;
     }
@@ -73,6 +91,37 @@ public class ClaudeProvider implements AIProvider {
     }
 
     static AIAnalysisResponse normalize(String content) throws Exception {
-        return new ObjectMapper().treeToValue(new ObjectMapper().readTree(content), AIAnalysisResponse.class);
+        String json = content.strip();
+        if (json.startsWith("```") && json.endsWith("```")) {
+            int openingLineEnd = json.indexOf('\n');
+            if (openingLineEnd >= 0) {
+                json = json.substring(openingLineEnd + 1, json.length() - 3).strip();
+            }
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(json);
+        if (root instanceof ObjectNode objectRoot) {
+            for (String field : List.of("problems", "securityRisks", "recommendations")) {
+                JsonNode items = objectRoot.get(field);
+                if (items != null && items.isArray()) {
+                    ArrayNode fixed = mapper.createArrayNode();
+                    for (JsonNode item : items) {
+                        if (item.isTextual()) {
+                            String text = item.asText();
+                            ObjectNode reportItem = mapper.createObjectNode();
+                            reportItem.put("title", text.length() > 80 ? text.substring(0, 80) : text);
+                            reportItem.put("description", text);
+                            reportItem.put("priority", "MEDIUM");
+                            fixed.add(reportItem);
+                        } else {
+                            fixed.add(item);
+                        }
+                    }
+                    objectRoot.set(field, fixed);
+                }
+            }
+        }
+        return mapper.treeToValue(root, AIAnalysisResponse.class);
     }
 }

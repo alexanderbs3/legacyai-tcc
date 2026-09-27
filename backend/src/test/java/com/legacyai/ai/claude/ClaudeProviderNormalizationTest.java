@@ -17,6 +17,31 @@ class ClaudeProviderNormalizationTest {
     }
 
     @Test
+    void normalizesFencedJsonWithStringReportItems() throws Exception {
+        String content = """
+                ```json
+                {
+                  "summary": "summary",
+                  "technologies": ["Java"],
+                  "architecture": "monolith",
+                  "problems": ["Missing tests"],
+                  "securityRisks": ["No authentication"],
+                  "recommendations": ["Add tests"],
+                  "modernization": ["incremental"]
+                }
+                ```
+                """;
+
+        AIAnalysisResponse report = ClaudeProvider.normalize(content);
+
+        assertEquals("Missing tests", report.problems().getFirst().title());
+        assertEquals("Missing tests", report.problems().getFirst().description());
+        assertEquals(ReportPriority.MEDIUM, report.problems().getFirst().priority());
+        assertEquals("No authentication", report.securityRisks().getFirst().description());
+        assertEquals("Add tests", report.recommendations().getFirst().title());
+    }
+
+    @Test
     void isUnavailableWithoutApiKey() {
         assertFalse(new ClaudeProvider("", "test").isAvailable());
     }
