@@ -1,0 +1,1 @@
+package com.legacyai.repository; import com.legacyai.entity.UploadedFile; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface UploadedFileRepository extends JpaRepository<UploadedFile,UUID>{List<UploadedFile> findAllByProjectIdOrderByUploadedAtDesc(UUID projectId);}

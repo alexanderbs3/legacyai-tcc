@@ -1,0 +1,1 @@
+package com.legacyai.repository; import com.legacyai.entity.Analysis; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AnalysisRepository extends JpaRepository<Analysis,UUID>{List<Analysis> findAllByProjectIdOrderByCreatedAtDesc(UUID projectId);}

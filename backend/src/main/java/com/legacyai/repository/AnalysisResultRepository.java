@@ -1,0 +1,1 @@
+package com.legacyai.repository; import com.legacyai.entity.AnalysisResult; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AnalysisResultRepository extends JpaRepository<AnalysisResult,UUID>{Optional<AnalysisResult> findByAnalysisId(UUID analysisId);}
