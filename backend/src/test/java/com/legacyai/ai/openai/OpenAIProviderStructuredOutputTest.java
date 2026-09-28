@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
+import com.legacyai.ai.AnalysisInstructions;
 import com.legacyai.ai.ReportPriority;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -79,8 +80,14 @@ class OpenAIProviderStructuredOutputTest {
                     assertEquals("array", schema.at("/properties/modernization/type").asText());
                     assertEquals("string", schema.at("/properties/modernization/items/type").asText());
                     String system = body.at("/messages/0/content").asText();
+                    assertTrue(system.contains(AnalysisInstructions.TEXT));
                     assertTrue(system.contains("português do Brasil"));
-                    assertTrue(system.contains("ProductController"));
+                    assertTrue(system.contains("identificadores técnicos originais presentes no contexto"));
+                    for (String requirement : List.of("contexto efetivamente fornecido",
+                            "não significa que não existem no projeto", "INFERÊNCIA", "INFORMAÇÃO INSUFICIENTE",
+                            "HIGH", "lista vazia")) {
+                        assertTrue(system.contains(requirement), requirement);
+                    }
                     assertEquals("contexto ProductController", body.at("/messages/1/content").asText());
                 })
                 .andRespond(withSuccess(JSON.writeValueAsString(response), MediaType.APPLICATION_JSON));

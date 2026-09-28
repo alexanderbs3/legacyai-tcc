@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import com.legacyai.ai.AnalysisInstructions;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -34,10 +35,6 @@ public class OpenAIProvider implements AIProvider {
     private static final String INVALID_RESPONSE = "OpenAI retornou resposta incompatível com o relatório esperado. Tente novamente.";
     private static final String SYSTEM_PROMPT = """
             Analise o projeto e retorne um relatório no formato JSON especificado.
-            Escreva todo o conteúdo textual em português do Brasil (pt-BR).
-            Preserve identificadores técnicos originais, como ProductController, ProductService,
-            application.yml, Spring Boot e PostgreSQL; não traduza esses nomes.
-            Se não houver achados em alguma lista, retorne uma lista vazia.
             """;
     private static final List<String> ITEM_SECTIONS = List.of("problems", "securityRisks", "recommendations");
     private static final List<String> REPORT_FIELDS = List.of("summary", "technologies", "architecture",
@@ -78,7 +75,7 @@ public class OpenAIProvider implements AIProvider {
             Map<String, Object> body = Map.of(
                     "model", model,
                     "messages", List.of(
-                            Map.of("role", "system", "content", SYSTEM_PROMPT),
+                            Map.of("role", "system", "content", SYSTEM_PROMPT + "\n" + AnalysisInstructions.TEXT),
                             Map.of("role", "user", "content", request.context())),
                     "response_format", RESPONSE_FORMAT);
             ResponseEntity<String> response = restClient.post()

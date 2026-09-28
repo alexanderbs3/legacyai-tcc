@@ -54,6 +54,12 @@ Corresponde ao esquema de `AnalysisResult`:
 
 Normalizacao e responsabilidade da estrategia -- nunca do `AnalysisService`.
 
+`AnalysisInstructions` centraliza criterios semanticos comuns para Claude, DeepSeek e OpenAI:
+pt-BR, preservacao de identificadores, achados fundamentados no contexto fornecido,
+incerteza explicita, prioridades e listas vazias quando nao houver evidencia.
+Cada estrategia conserva o transporte, o formato JSON exigido pela API, o parsing e
+o tratamento de erros; a OpenAI continua usando JSON Schema com `strict=true` para a estrutura.
+
 ---
 
 ## Status de analise

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import com.legacyai.ai.AnalysisInstructions;
 import com.legacyai.ai.ReportPriority;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -106,7 +107,17 @@ class DeepSeekProviderTest {
         @SuppressWarnings("unchecked") List<Map<String, String>> messages = (List<Map<String, String>>) body.getValue().get("messages");
         assertEquals("system", messages.getFirst().get("role"));
         assertTrue(messages.getFirst().get("content").contains("JSON"));
+        assertSharedQualityInstructions(messages.getFirst().get("content"));
         assertEquals(Map.of("role", "user", "content", "project context"), messages.get(1));
+    }
+
+    private static void assertSharedQualityInstructions(String prompt) {
+        assertTrue(prompt.contains(AnalysisInstructions.TEXT));
+        for (String requirement : List.of("português do Brasil (pt-BR)", "identificadores técnicos",
+                "contexto efetivamente fornecido", "não significa que não existem no projeto",
+                "INFERÊNCIA", "INFORMAÇÃO INSUFICIENTE", "HIGH", "lista vazia")) {
+            assertTrue(prompt.contains(requirement), requirement);
+        }
     }
 
     @Test

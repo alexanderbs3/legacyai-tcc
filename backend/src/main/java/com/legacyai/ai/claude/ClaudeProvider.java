@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import com.legacyai.ai.AnalysisInstructions;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -83,7 +84,8 @@ public class ClaudeProvider implements AIProvider {
             Map<String, Object> body = Map.of(
                     "model", model,
                     "max_tokens", 4096,
-                    "messages", List.of(Map.of("role", "user", "content", JSON_PROMPT + "\n\n" + request.context())));
+                    "messages", List.of(Map.of("role", "user", "content",
+                            JSON_PROMPT + "\n\n" + AnalysisInstructions.TEXT + "\n\n" + request.context())));
             JsonNode response = restClient.post()
                     .uri("/v1/messages")
                     .header("x-api-key", key)

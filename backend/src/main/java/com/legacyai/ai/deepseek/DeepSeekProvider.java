@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import com.legacyai.ai.AnalysisInstructions;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -90,7 +91,7 @@ public class DeepSeekProvider implements AIProvider {
             Map<String, Object> body = Map.of(
                     "model", model,
                     "messages", List.of(
-                            Map.of("role", "system", "content", JSON_PROMPT),
+                            Map.of("role", "system", "content", JSON_PROMPT + "\n\n" + AnalysisInstructions.TEXT),
                             Map.of("role", "user", "content", request.context())),
                     "response_format", Map.of("type", "json_object"),
                     "thinking", Map.of("type", "disabled"),
