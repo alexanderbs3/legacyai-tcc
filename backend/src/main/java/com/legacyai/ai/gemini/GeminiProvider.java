@@ -7,8 +7,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -44,11 +51,22 @@ public class GeminiProvider implements AIProvider {
 
     private final String key;
     private final String model;
+    private final RestClient restClient;
 
-    public GeminiProvider(@Value("${ai.gemini.api-key:}") String key,
-                          @Value("${ai.gemini.model:gemini-2.0-flash}") String model) {
+    public GeminiProvider(String key, String model) {
         this.key = key;
         this.model = model;
+        this.restClient = restClient(10, 90);
+    }
+
+    @Autowired
+    public GeminiProvider(@Value("${ai.gemini.api-key:}") String key,
+                          @Value("${ai.gemini.model:gemini-2.0-flash}") String model,
+                          @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
+                          @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
+        this.key = key;
+        this.model = model;
+        this.restClient = restClient(connectTimeoutSeconds, readTimeoutSeconds);
     }
 
     @Override
@@ -71,7 +89,7 @@ public class GeminiProvider implements AIProvider {
             Map<String, Object> body = Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", JSON_PROMPT + "\n\n" + request.context())))),
                     "generationConfig", Map.of("responseMimeType", "application/json"));
-            JsonNode response = RestClient.create("https://generativelanguage.googleapis.com").post()
+            JsonNode response = restClient.post()
                     .uri("/v1beta/models/{model}:generateContent?key={key}", model, key)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
@@ -118,5 +136,21 @@ public class GeminiProvider implements AIProvider {
             }
         }
         return mapper.treeToValue(root, AIAnalysisResponse.class);
+    }
+
+    private static RestClient restClient(int connectTimeoutSeconds, int readTimeoutSeconds) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(connectTimeoutSeconds))
+                .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
+                .build();
+        return RestClient.builder()
+                .baseUrl("https://generativelanguage.googleapis.com")
+                .requestFactory(new HttpComponentsClientHttpRequestFactory(HttpClients.custom()
+                        .setDefaultRequestConfig(requestConfig)
+                        .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                                .setConnectionTimeToLive(TimeValue.ofSeconds(connectTimeoutSeconds))
+                                .build())
+                        .build()))
+                .build();
     }
 }

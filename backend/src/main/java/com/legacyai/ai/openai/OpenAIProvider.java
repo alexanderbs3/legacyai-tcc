@@ -5,9 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -19,12 +26,23 @@ import java.util.Map;
 public class OpenAIProvider implements AIProvider {
     private final String key;
     private final String model;
+    private final RestClient restClient;
     private final ObjectMapper json = new ObjectMapper();
 
-    public OpenAIProvider(@Value("${OPENAI_API_KEY:}") String key,
-                          @Value("${openai.model:gpt-4.1-mini}") String model) {
+    public OpenAIProvider(String key, String model) {
         this.key = key;
         this.model = model;
+        this.restClient = restClient(10, 90);
+    }
+
+    @Autowired
+    public OpenAIProvider(@Value("${OPENAI_API_KEY:}") String key,
+                          @Value("${openai.model:gpt-4.1-mini}") String model,
+                          @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
+                          @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
+        this.key = key;
+        this.model = model;
+        this.restClient = restClient(connectTimeoutSeconds, readTimeoutSeconds);
     }
 
     @Override public boolean isAvailable() { return !key.isBlank(); }
@@ -40,7 +58,7 @@ public class OpenAIProvider implements AIProvider {
                             Map.of("role", "system", "content", "Retorne somente JSON com summary, technologies, architecture, problems, securityRisks, recommendations, modernization."),
                             Map.of("role", "user", "content", request.context())),
                     "response_format", Map.of("type", "json_object"));
-            JsonNode response = RestClient.create("https://api.openai.com/v1").post()
+            JsonNode response = restClient.post()
                     .uri("/chat/completions")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
                     .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
@@ -62,5 +80,21 @@ public class OpenAIProvider implements AIProvider {
 
     static AIAnalysisResponse normalize(String content) throws Exception {
         return new ObjectMapper().treeToValue(new ObjectMapper().readTree(content), AIAnalysisResponse.class);
+    }
+
+    private static RestClient restClient(int connectTimeoutSeconds, int readTimeoutSeconds) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(connectTimeoutSeconds))
+                .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
+                .build();
+        return RestClient.builder()
+                .baseUrl("https://api.openai.com/v1")
+                .requestFactory(new HttpComponentsClientHttpRequestFactory(HttpClients.custom()
+                        .setDefaultRequestConfig(requestConfig)
+                        .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                                .setConnectionTimeToLive(TimeValue.ofSeconds(connectTimeoutSeconds))
+                                .build())
+                        .build()))
+                .build();
     }
 }

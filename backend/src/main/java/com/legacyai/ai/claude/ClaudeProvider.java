@@ -7,8 +7,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
 import com.legacyai.ai.AIProvider;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -38,11 +45,22 @@ public class ClaudeProvider implements AIProvider {
 
     private final String key;
     private final String model;
+    private final RestClient restClient;
 
-    public ClaudeProvider(@Value("${ai.claude.api-key:}") String key,
-                          @Value("${ai.claude.model:claude-haiku-4-5}") String model) {
+    public ClaudeProvider(String key, String model) {
         this.key = key;
         this.model = model;
+        this.restClient = restClient(10, 90);
+    }
+
+    @Autowired
+    public ClaudeProvider(@Value("${ai.claude.api-key:}") String key,
+                          @Value("${ai.claude.model:claude-haiku-4-5}") String model,
+                          @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
+                          @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
+        this.key = key;
+        this.model = model;
+        this.restClient = restClient(connectTimeoutSeconds, readTimeoutSeconds);
     }
 
     @Override
@@ -66,7 +84,7 @@ public class ClaudeProvider implements AIProvider {
                     "model", model,
                     "max_tokens", 4096,
                     "messages", List.of(Map.of("role", "user", "content", JSON_PROMPT + "\n\n" + request.context())));
-            JsonNode response = RestClient.create("https://api.anthropic.com").post()
+            JsonNode response = restClient.post()
                     .uri("/v1/messages")
                     .header("x-api-key", key)
                     .header("anthropic-version", "2023-06-01")
@@ -123,5 +141,21 @@ public class ClaudeProvider implements AIProvider {
             }
         }
         return mapper.treeToValue(root, AIAnalysisResponse.class);
+    }
+
+    private static RestClient restClient(int connectTimeoutSeconds, int readTimeoutSeconds) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(connectTimeoutSeconds))
+                .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
+                .build();
+        return RestClient.builder()
+                .baseUrl("https://api.anthropic.com")
+                .requestFactory(new HttpComponentsClientHttpRequestFactory(HttpClients.custom()
+                        .setDefaultRequestConfig(requestConfig)
+                        .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                                .setConnectionTimeToLive(TimeValue.ofSeconds(connectTimeoutSeconds))
+                                .build())
+                        .build()))
+                .build();
     }
 }
