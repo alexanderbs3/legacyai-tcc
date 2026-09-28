@@ -109,6 +109,12 @@ Erros: 403, 404
 
 ## Upload de Arquivos
 
+### GET /api/projects/{id}/files
+```
+Response 200: UploadedFileResponse[] (id, fileName, fileType, fileSize, uploadedAt)
+Erros: 403 (projeto de outro usuario), 404
+```
+
 ### POST /api/projects/{id}/files
 
 ```
@@ -147,7 +153,7 @@ Response 202 Accepted:
   "status": "PENDING"
 }
 
-Erros: 403, 404
+Erros: 400 (`INVALID_FILE` quando o projeto nao possui arquivos), 403, 404
 ```
 
 ### GET /api/projects/{id}/analyses
@@ -172,6 +178,7 @@ Response 200: AnalysisSummary[]
 Response 200: AnalysisDetail
 {
   "id": "uuid",
+  "projectId": "uuid",
   "provider": "string",
   "status": "COMPLETED",
   "createdAt": "ISO-8601",

@@ -32,7 +32,7 @@ POST /api/projects/{id}/analyses  <- dispara o processamento
 |--------------|------------------------------------------------------------------------------|
 | Extensao     | `.zip`, `.md`, `.txt`, `README`                                              |
 | Tipo MIME    | Validar conteudo -- nao confiar so na extensao                               |
-| Tamanho      | Upload e requisicao multipart limitados a 50 MB                              |
+| Tamanho      | 70 MB por arquivo; 75 MB por requisicao multipart (inclui overhead)           |
 | Zip Slip     | Normalizar caminho extraido; confirmar que fica dentro do diretorio temporario|
 | Limpeza      | `finally` / try-with-resources remove temporarios apos processamento         |
 
