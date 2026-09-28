@@ -197,6 +197,13 @@ Nota: result e null quando status != COMPLETED
 Erros: 403, 404
 ```
 
+### DELETE /api/analyses/{id}
+
+```
+Response 204 No Content
+Erros: 403 (analise de outro usuario), 404
+```
+
 ---
 
 ## Provedores de IA

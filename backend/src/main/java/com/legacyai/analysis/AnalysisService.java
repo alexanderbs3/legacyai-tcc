@@ -23,6 +23,7 @@ import com.legacyai.repository.ProjectRepository;
 import com.legacyai.repository.UploadedFileRepository;
 import com.legacyai.security.OwnershipVerifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +45,7 @@ public class AnalysisService {
     private void process(UUID analysisId, Project project) { Analysis analysis=analyses.findById(analysisId).orElseThrow(); try { analysis.processing(); analyses.save(analysis); AIProvider provider=providers.get(analysis.getProvider()); if(!provider.isAvailable()) throw new IllegalStateException("Provedor não configurado"); String context=processor.processFiles(project,files.findAllByProjectIdOrderByUploadedAtDesc(project.getId())); AIAnalysisResponse report=provider.analyze(new AIAnalysisRequest(project.getName(),context)); results.save(new AnalysisResult(analysisId,report.summary(),toJson(report.technologies()),report.architecture(),toJson(report.problems()),toJson(report.securityRisks()),toJson(report.recommendations()),toJson(report.modernization()))); analysis.completed(); analyses.save(analysis); } catch(Exception exception) { analysis.failed(exception.getMessage()); analyses.save(analysis); } }
     public List<AnalysisSummaryResponse> list(UUID userId, UUID projectId) { owned(userId,projectId); return analyses.findAllByProjectIdOrderByCreatedAtDesc(projectId).stream().map(AnalysisSummaryResponse::from).toList(); }
     public AnalysisDetailResponse detail(UUID userId, UUID analysisId) { Analysis analysis=analyses.findById(analysisId).orElseThrow(ResourceNotFoundException::new); owned(userId,analysis.getProjectId()); ReportResultResponse result=analysis.getStatus()== AnalysisStatus.COMPLETED ? results.findByAnalysisId(analysisId).map(value->ReportResultResponse.from(value,json)).orElse(null) : null; return new AnalysisDetailResponse(analysis.getId(),analysis.getProvider(),analysis.getStatus().name(),analysis.getCreatedAt(),analysis.getCompletedAt(),analysis.getErrorMessage(),result); }
+    @Transactional public void delete(UUID userId, UUID analysisId) { Analysis analysis=analyses.findById(analysisId).orElseThrow(ResourceNotFoundException::new); owned(userId,analysis.getProjectId()); results.findByAnalysisId(analysisId).ifPresent(results::delete); analyses.delete(analysis); }
     public List<ProviderResponse> providerList() { return providers.values().stream().map(p->new ProviderResponse(p.getProviderName(),p.getProviderName(),p.isAvailable())).toList(); }
     private Project owned(UUID userId, UUID projectId) { Project project=projects.findById(projectId).orElseThrow(ResourceNotFoundException::new); ownership.verify(project.getUserId(),userId); return project; }
     private String toJson(Object value) { try { return json.writeValueAsString(value); } catch(Exception exception) { throw new IllegalStateException("Não foi possível persistir resultado normalizado",exception); } }
