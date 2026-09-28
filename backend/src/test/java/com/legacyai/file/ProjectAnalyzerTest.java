@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,5 +55,56 @@ class ProjectAnalyzerTest {
 
         assertThrows(SecurityException.class, () -> new FileProcessor().processFiles(
                 new Project("Demo", "", UUID.randomUUID()), List.of(file)));
+    }
+
+    @Test
+    void ignoresPdfWithoutNullBytesInsteadOfFailingUtf8Context() throws Exception {
+        Path archive = tempDir.resolve("project.zip");
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new ZipEntry("src/Main.java"));
+            zip.write("// análise técnica\npublic class Main {}".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("docs/report.pdf"));
+            zip.write("%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII));
+            zip.write(new byte[] {(byte) 0x80, (byte) 0xFF});
+            zip.closeEntry();
+        }
+
+        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "project.zip", "application/zip",
+                Files.size(archive), archive.toString());
+        String context = new FileProcessor().processFiles(
+                new Project("Demo", "", UUID.randomUUID()), List.of(upload));
+
+        assertTrue(context.contains("// análise técnica"));
+        assertFalse(context.contains("report.pdf"));
+    }
+
+    @Test
+    void rejectsPdfOnlyArchiveInsteadOfProducingAnEmptyReport() throws Exception {
+        Path archive = tempDir.resolve("pdf-only.zip");
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new ZipEntry("interview.pdf"));
+            zip.write("%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII));
+            zip.write(new byte[] {(byte) 0x80});
+            zip.closeEntry();
+        }
+        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "pdf-only.zip", "application/zip",
+                Files.size(archive), archive.toString());
+
+        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor().processFiles(
+                new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
+        assertTrue(error.getMessage().contains("texto UTF-8"));
+    }
+
+    @Test
+    void rejectsNonUtf8DirectTextWithUsefulMessage() throws Exception {
+        Path source = tempDir.resolve("invalid.txt");
+        Files.write(source, new byte[] {(byte) 0x80});
+        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "invalid.txt", "text/plain",
+                Files.size(source), source.toString());
+
+        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor().processFiles(
+                new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
+        assertTrue(error.getMessage().contains("UTF-8"));
     }
 }

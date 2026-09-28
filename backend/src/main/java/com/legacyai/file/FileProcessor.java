@@ -3,9 +3,12 @@ package com.legacyai.file;
 import com.legacyai.analysis.ProjectContextBuilder;
 import com.legacyai.entity.Project;
 import com.legacyai.entity.UploadedFile;
+import com.legacyai.exception.InvalidFileException;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.MalformedInputException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -33,8 +36,16 @@ public class FileProcessor {
                         throw new SecurityException("Tentativa de path traversal bloqueada: " + file.getFileName());
                     }
                     Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                    try {
+                        Files.readString(target, StandardCharsets.UTF_8);
+                    } catch (MalformedInputException exception) {
+                        throw new InvalidFileException("Arquivo de texto deve estar em UTF-8. Converta o arquivo e tente novamente.");
+                    }
                     selected.add(target);
                 }
+            }
+            if (selected.isEmpty()) {
+                throw new InvalidFileException("O upload não contém arquivos de texto UTF-8 processáveis. Extraia o conteúdo de PDFs em TXT/MD ou inclua código-fonte.");
             }
             return builder.build(project.getName(), selected);
         } finally {

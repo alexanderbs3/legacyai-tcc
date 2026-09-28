@@ -7,7 +7,7 @@
 
 Plataforma web para analise tecnica de sistemas legados. O usuario envia codigo-fonte
 compactado ou documentacao e recebe um relatorio de diagnostico gerado por IA, escolhendo
-entre OpenAI, Claude, Gemini ou modo Automatico.
+entre OpenAI, Claude, DeepSeek ou modo Automatico.
 
 **Arquitetura:** monolito modular -- nao sao microsservicos.
 **Stack:** Java 21 + Spring Boot | React + TypeScript + Vite | PostgreSQL.
@@ -73,7 +73,7 @@ Duvida sobre escopo ou tecnologia
 ## Regras globais criticas
 
 - **Chaves de API nunca no codigo ou em arquivos versionados.**
-  Variaveis: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
+  Variaveis: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`.
 - **Nao expandir o escopo sem necessidade.** Consulte `SCOPE.md` antes de adicionar tecnologias.
 - **Codigo e a fonte da verdade.** Quando documentacao e codigo divergirem, verifique o codigo e corrija a documentacao.
 - **Nao presuma.** Nao presuma endpoints, entidades, variaveis de ambiente ou comportamento -- verifique no codigo.

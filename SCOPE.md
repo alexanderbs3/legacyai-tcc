@@ -15,7 +15,7 @@ Usuario autenticado cria projeto -> envia material valido -> inicia analise com 
 | Autenticacao   | Cadastro, login, JWT; usuario acessa apenas seus dados                       |
 | Projetos       | CRUD: criar, listar, consultar, editar, excluir                              |
 | Upload         | ZIP, README, .md, .txt; validacao de formato e tamanho                       |
-| Analise        | Selecao de provedor (OpenAI, Claude, Gemini, Auto); uma por solicitacao|
+| Analise        | Selecao de provedor (OpenAI, Claude, DeepSeek, Auto); uma por solicitacao|
 | Relatorio      | Diagnostico padronizado; historico persistido                                |
 | Infraestrutura | Docker Compose apenas para PostgreSQL                                        |
 | Seguranca      | BCrypt, Bean Validation, Zip Slip, chaves em variaveis de ambiente           |

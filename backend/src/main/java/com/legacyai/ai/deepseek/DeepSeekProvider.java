@@ -1,4 +1,4 @@
-package com.legacyai.ai.gemini;
+package com.legacyai.ai.deepseek;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,19 +12,25 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
-public class GeminiProvider implements AIProvider {
+public class DeepSeekProvider implements AIProvider {
+    private static final Logger log = LoggerFactory.getLogger(DeepSeekProvider.class);
     private static final int MAX_RETRIES = 3;
     private static final String JSON_PROMPT = """
             Retorne SOMENTE um objeto JSON válido, sem texto adicional, sem markdown.
@@ -33,15 +39,9 @@ public class GeminiProvider implements AIProvider {
               "summary": "string com visão geral",
               "technologies": ["string", "string"],
               "architecture": "string descrevendo a arquitetura",
-              "problems": [
-                {"title": "string", "description": "string", "priority": "HIGH"}
-              ],
-              "securityRisks": [
-                {"title": "string", "description": "string", "priority": "MEDIUM"}
-              ],
-              "recommendations": [
-                {"title": "string", "description": "string", "priority": "HIGH"}
-              ],
+              "problems": [{"title": "string", "description": "string", "priority": "HIGH"}],
+              "securityRisks": [{"title": "string", "description": "string", "priority": "MEDIUM"}],
+              "recommendations": [{"title": "string", "description": "string", "priority": "HIGH"}],
               "modernization": ["string", "string"]
             }
             Prioridades válidas: HIGH, MEDIUM, LOW.
@@ -54,17 +54,17 @@ public class GeminiProvider implements AIProvider {
     private final String model;
     private final RestClient restClient;
 
-    public GeminiProvider(String key, String model) {
+    public DeepSeekProvider(String key, String model) {
         this.key = key;
         this.model = model;
         this.restClient = restClient(10, 90);
     }
 
     @Autowired
-    public GeminiProvider(@Value("${ai.gemini.api-key:}") String key,
-                          @Value("${ai.gemini.model:gemini-2.0-flash}") String model,
-                          @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
-                          @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
+    public DeepSeekProvider(@Value("${ai.deepseek.api-key:}") String key,
+                            @Value("${ai.deepseek.model:deepseek-flash}") String model,
+                            @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
+                            @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
         this.key = key;
         this.model = model;
         this.restClient = restClient(connectTimeoutSeconds, readTimeoutSeconds);
@@ -77,92 +77,108 @@ public class GeminiProvider implements AIProvider {
 
     @Override
     public String getProviderName() {
-        return "GEMINI";
+        return "DEEPSEEK";
     }
 
     @Override
     public AIAnalysisResponse analyze(AIAnalysisRequest request) {
         if (!isAvailable()) {
-            throw new IllegalStateException("GEMINI_API_KEY não configurada");
+            throw new IllegalStateException("DEEPSEEK_API_KEY não configurada");
         }
 
         try {
             Map<String, Object> body = Map.of(
-                    "contents", List.of(Map.of("parts", List.of(Map.of("text", JSON_PROMPT + "\n\n" + request.context())))),
-                    "generationConfig", Map.of("responseMimeType", "application/json"));
+                    "model", model,
+                    "messages", List.of(
+                            Map.of("role", "system", "content", JSON_PROMPT),
+                            Map.of("role", "user", "content", request.context())),
+                    "response_format", Map.of("type", "json_object"),
+                    "thinking", Map.of("type", "disabled"),
+                    "max_tokens", 4096);
             JsonNode response = callWithRetry(body);
-            return normalize(response.at("/candidates/0/content/parts/0/text").asText());
+            JsonNode content = response.at("/choices/0/message/content");
+            if (!content.isTextual() || content.asText().isBlank()) {
+                throw new IllegalStateException("DeepSeek retornou resposta em formato inesperado. Tente novamente.");
+            }
+            return normalize(content.asText());
         } catch (RestClientResponseException exception) {
             throw new IllegalStateException(failureMessage(exception.getStatusCode()), exception);
+        } catch (RestClientException exception) {
+            throw new IllegalStateException("Não foi possível conectar ao DeepSeek. Tente novamente mais tarde.", exception);
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalStateException("Gemini retornou resposta em formato inesperado. Tente novamente.", exception);
+            throw new IllegalStateException("DeepSeek retornou resposta em formato inesperado. Tente novamente.", exception);
         }
     }
 
     private JsonNode callWithRetry(Map<String, Object> body) {
         for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
             if (attempt > 0) {
-                waitBeforeRetry(attempt);
+                try {
+                    Thread.sleep(2000L * attempt);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Análise interrompida.", exception);
+                }
             }
 
             try {
-                return restClient.post()
-                        .uri("/v1beta/models/{model}:generateContent?key={key}", model, key)
+                ResponseEntity<JsonNode> response = restClient.post()
+                        .uri("/chat/completions")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
                         .body(body)
                         .retrieve()
-                        .body(JsonNode.class);
+                        .toEntity(JsonNode.class);
+                log.info("DeepSeek POST /chat/completions HTTP {}", response.getStatusCode().value());
+                return response.getBody();
             } catch (RestClientResponseException exception) {
                 if (exception.getStatusCode().value() != 503) {
                     throw exception;
                 }
-
                 if (attempt == MAX_RETRIES - 1) {
-                    throw new IllegalStateException(
-                            "Gemini está temporariamente indisponível. Tente novamente em alguns minutos.",
-                            exception);
+                    throw new IllegalStateException("DeepSeek está temporariamente indisponível. Tente novamente em alguns minutos.", exception);
                 }
             }
         }
-
-        throw new IllegalStateException("Gemini está temporariamente indisponível. Tente novamente em alguns minutos.");
-    }
-
-    private static void waitBeforeRetry(int attempt) {
-        try {
-            Thread.sleep(2000L * attempt);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Análise interrompida.", exception);
-        }
+        throw new IllegalStateException("DeepSeek está temporariamente indisponível. Tente novamente em alguns minutos.");
     }
 
     static String failureMessage(org.springframework.http.HttpStatusCode status) {
         return switch (status.value()) {
-            case 401, 403 -> "Gemini recusou as credenciais. Verifique GEMINI_API_KEY.";
-            case 429 -> "Gemini não pôde processar a análise: limite de uso ou créditos esgotados.";
-            default -> "Gemini retornou erro HTTP " + status.value() + ". Tente novamente mais tarde.";
+            case 400 -> "DeepSeek recusou o formato da requisição.";
+            case 401, 403 -> "DeepSeek recusou as credenciais. Verifique DEEPSEEK_API_KEY.";
+            case 402 -> "DeepSeek não pôde processar a análise: saldo insuficiente.";
+            case 429 -> "DeepSeek não pôde processar a análise: limite de uso excedido.";
+            default -> "DeepSeek retornou erro HTTP " + status.value() + ". Tente novamente mais tarde.";
         };
     }
 
     static AIAnalysisResponse normalize(String content) throws Exception {
+        String json = content.strip();
+        if (json.startsWith("```") && json.endsWith("```")) {
+            int openingLineEnd = json.indexOf('\n');
+            if (openingLineEnd >= 0) {
+                json = json.substring(openingLineEnd + 1, json.length() - 3).strip();
+            }
+        }
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(content);
+        JsonNode root = mapper.readTree(json);
         if (root instanceof ObjectNode objectRoot) {
             for (String field : List.of("problems", "securityRisks", "recommendations")) {
-                JsonNode node = objectRoot.get(field);
-                if (node != null && node.isArray()) {
+                JsonNode items = objectRoot.get(field);
+                if (items != null && items.isArray()) {
                     ArrayNode fixed = mapper.createArrayNode();
-                    for (JsonNode item : node) {
+                    for (JsonNode item : items) {
                         if (item.isTextual()) {
                             String text = item.asText();
-                            ObjectNode obj = mapper.createObjectNode();
-                            obj.put("title", text.length() > 80 ? text.substring(0, 80) : text);
-                            obj.put("description", text);
-                            obj.put("priority", "MEDIUM");
-                            fixed.add(obj);
+                            ObjectNode reportItem = mapper.createObjectNode();
+                            reportItem.put("title", text.length() > 80 ? text.substring(0, 80) : text);
+                            reportItem.put("description", text);
+                            reportItem.put("priority", "MEDIUM");
+                            fixed.add(reportItem);
                         } else {
                             fixed.add(item);
                         }
@@ -180,7 +196,7 @@ public class GeminiProvider implements AIProvider {
                 .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
                 .build();
         return RestClient.builder()
-                .baseUrl("https://generativelanguage.googleapis.com")
+                .baseUrl("https://api.deepseek.com")
                 .requestFactory(new HttpComponentsClientHttpRequestFactory(HttpClients.custom()
                         .setDefaultRequestConfig(requestConfig)
                         .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()

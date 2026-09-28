@@ -28,7 +28,7 @@ Frontend faz polling em `GET /api/analyses/{id}` ate status final.
 ```java
 public interface AIProvider {
     AIAnalysisResponse analyze(AIAnalysisRequest request);
-    String getProviderName();   // "OPENAI" | "CLAUDE" | "GEMINI"
+    String getProviderName();   // "OPENAI" | "CLAUDE" | "DEEPSEEK"
     boolean isAvailable();      // false se variavel de ambiente da chave nao configurada
 }
 ```
@@ -37,7 +37,7 @@ public interface AIProvider {
 
 | Modo    | Comportamento                                                           |
 |---------|-------------------------------------------------------------------------|
-| `AUTO`  | Usa o provedor padrao habilitado; sem roteamento inteligente no MVP     |
+| `AUTO`  | Usa `OPENAI` como provedor padrao; sem roteamento inteligente no MVP   |
 | Manual  | `AnalysisService` seleciona pelo nome recebido no request               |
 
 `isAvailable()` retorna `false` quando a variavel de ambiente da chave nao esta configurada.
@@ -75,7 +75,7 @@ Normalizacao e responsabilidade da estrategia -- nunca do `AnalysisService`.
 ## Variaveis de ambiente
 
 ```
-OPENAI_API_KEY     ANTHROPIC_API_KEY    GEMINI_API_KEY
+OPENAI_API_KEY     ANTHROPIC_API_KEY    DEEPSEEK_API_KEY
 ```
 
 ## Contrato REST

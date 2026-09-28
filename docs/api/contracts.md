@@ -138,7 +138,7 @@ Erros: 400 (arquivo invalido ou limite excedido, com `FILE_TOO_LARGE`), 403 (pro
 ```
 Request:
 {
-  "provider": "OPENAI | CLAUDE | GEMINI | AUTO"
+  "provider": "OPENAI | CLAUDE | DEEPSEEK | AUTO"
 }
 
 Response 202 Accepted:
@@ -213,14 +213,15 @@ Erros: 403 (analise de outro usuario), 404
 ```
 Response 200:
 [
-  { "name": "OPENAI",  "displayName": "ChatGPT",   "available": true  },
-  { "name": "CLAUDE",  "displayName": "Claude",     "available": true  },
-  { "name": "GEMINI",  "displayName": "Gemini",     "available": false },
-  { "name": "AUTO",    "displayName": "Automatico", "available": true  }
+  { "name": "OPENAI",   "displayName": "OPENAI",   "available": true  },
+  { "name": "CLAUDE",   "displayName": "CLAUDE",   "available": true  },
+  { "name": "DEEPSEEK", "displayName": "DEEPSEEK", "available": false }
 ]
 ```
 
 `available: false` quando a variavel de ambiente da chave nao estiver configurada.
+`AUTO` e aceito em `POST /api/projects/{id}/analyses` e seleciona `OPENAI`, mas nao e listado nesta resposta.
+O frontend exibe `DEEPSEEK` como "DeepSeek V4.1 Flash"; a configuracao usa o identificador de modelo `deepseek-flash`.
 
 ---
 

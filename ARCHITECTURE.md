@@ -31,7 +31,7 @@ graph TB
     subgraph PROV["Provedores de IA  (APIs externas)"]
         OAI[OpenAI]
         CLD[Claude]
-        GMN[Gemini]
+        DSK[DeepSeek V4.1 Flash]
     end
 
     DB[(PostgreSQL)]
@@ -43,7 +43,7 @@ graph TB
     SVC_BE --> FILE
     FILE --> PCB
     SVC_BE --> AI
-    AI --> OAI & CLD & GMN
+    AI --> OAI & CLD & DSK
 ```
 
 ## Modulos do backend

@@ -24,7 +24,7 @@ src/main/java/com/legacyai/
 │   ├── AIAnalysisResponse.java  # Saida normalizada
 │   ├── openai/                  # OpenAIProvider
 │   ├── claude/                  # ClaudeProvider
-│   └── gemini/                  # GeminiProvider
+│   └── deepseek/                # DeepSeekProvider
 ├── file/
 │   ├── FileProcessor.java       # Ponto de entrada para processamento
 │   └── ZipProcessor.java        # Extracao segura de ZIP (Zip Slip protection)
@@ -54,7 +54,7 @@ Campos compostos de `AnalysisResult` sao armazenados como `TEXT` ou JSON no MVP.
 ```java
 public interface AIProvider {
     AIAnalysisResponse analyze(AIAnalysisRequest request);
-    String getProviderName();   // "OPENAI" | "CLAUDE" | "GEMINI"
+    String getProviderName();   // "OPENAI" | "CLAUDE" | "DEEPSEEK"
     boolean isAvailable();      // false se chave de ambiente nao configurada
 }
 ```
