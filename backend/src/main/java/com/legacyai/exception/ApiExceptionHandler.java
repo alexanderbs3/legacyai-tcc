@@ -44,7 +44,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
-        return error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "Arquivo excede o limite de 50 MB.");
+        return error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "Arquivo excede o limite de 70 MB.");
     }
 
     private ResponseEntity<Map<String, String>> error(HttpStatus status, String error, String message) {

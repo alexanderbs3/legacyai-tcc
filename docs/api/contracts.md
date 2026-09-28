@@ -115,7 +115,7 @@ Erros: 403, 404
 Content-Type: multipart/form-data
 Campo: file
 Extensoes aceitas: .zip / .md / .txt / README (sem extensao)
-Tamanho maximo: 50 MB por arquivo; 55 MB por requisicao multipart (inclui overhead do formulario)
+Tamanho maximo: 70 MB por arquivo; 75 MB por requisicao multipart (inclui overhead do formulario)
 
 Response 201:
 {

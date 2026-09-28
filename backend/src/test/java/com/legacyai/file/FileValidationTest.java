@@ -25,15 +25,15 @@ class FileValidationTest {
     }
 
     @Test
-    void rejectsFileLargerThanFiftyMegabytes() {
+    void rejectsFileLargerThanSeventyMegabytes() {
         MultipartFile file = mock(MultipartFile.class);
-        when(file.getSize()).thenReturn(50L * 1024 * 1024 + 1);
+        when(file.getSize()).thenReturn(70L * 1024 * 1024 + 1);
         when(file.getOriginalFilename()).thenReturn("README.md");
         when(file.getContentType()).thenReturn("text/markdown");
 
         InvalidFileException exception = assertThrows(InvalidFileException.class,
                 () -> FileService.validateUpload(file));
 
-        assertEquals("Arquivo excede o limite de 50 MB.", exception.getMessage());
+        assertEquals("Arquivo excede o limite de 70 MB.", exception.getMessage());
     }
 }
