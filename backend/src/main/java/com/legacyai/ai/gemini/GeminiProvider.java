@@ -25,6 +25,7 @@ import java.util.Map;
 
 @Service
 public class GeminiProvider implements AIProvider {
+    private static final int MAX_RETRIES = 3;
     private static final String JSON_PROMPT = """
             Retorne SOMENTE um objeto JSON válido, sem texto adicional, sem markdown.
             O JSON deve seguir EXATAMENTE este esquema:
@@ -89,17 +90,52 @@ public class GeminiProvider implements AIProvider {
             Map<String, Object> body = Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", JSON_PROMPT + "\n\n" + request.context())))),
                     "generationConfig", Map.of("responseMimeType", "application/json"));
-            JsonNode response = restClient.post()
-                    .uri("/v1beta/models/{model}:generateContent?key={key}", model, key)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(JsonNode.class);
+            JsonNode response = callWithRetry(body);
             return normalize(response.at("/candidates/0/content/parts/0/text").asText());
         } catch (RestClientResponseException exception) {
             throw new IllegalStateException(failureMessage(exception.getStatusCode()), exception);
+        } catch (IllegalStateException exception) {
+            throw exception;
         } catch (Exception exception) {
             throw new IllegalStateException("Gemini retornou resposta em formato inesperado. Tente novamente.", exception);
+        }
+    }
+
+    private JsonNode callWithRetry(Map<String, Object> body) {
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            if (attempt > 0) {
+                waitBeforeRetry(attempt);
+            }
+
+            try {
+                return restClient.post()
+                        .uri("/v1beta/models/{model}:generateContent?key={key}", model, key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .body(JsonNode.class);
+            } catch (RestClientResponseException exception) {
+                if (exception.getStatusCode().value() != 503) {
+                    throw exception;
+                }
+
+                if (attempt == MAX_RETRIES - 1) {
+                    throw new IllegalStateException(
+                            "Gemini está temporariamente indisponível. Tente novamente em alguns minutos.",
+                            exception);
+                }
+            }
+        }
+
+        throw new IllegalStateException("Gemini está temporariamente indisponível. Tente novamente em alguns minutos.");
+    }
+
+    private static void waitBeforeRetry(int attempt) {
+        try {
+            Thread.sleep(2000L * attempt);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Análise interrompida.", exception);
         }
     }
 

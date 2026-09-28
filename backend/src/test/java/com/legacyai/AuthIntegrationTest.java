@@ -3,7 +3,6 @@ package com.legacyai;
 import org.junit.jupiter.api.Test;
 import com.jayway.jsonpath.JsonPath;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -12,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -76,7 +77,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void signsLoginTokensWithHs256UsingTheBase64EncodedSecret() throws Exception {
+    void signsLoginTokensWithHs256UsingTheUtf8Secret() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"JWT Test\",\"email\":\"jwt-test@example.com\",\"password\":\"secure-password\"}"))
@@ -94,7 +95,7 @@ class AuthIntegrationTest {
         String token = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
 
         var claims = Jwts.parser()
-                .verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")))
+                .verifyWith(Keys.hmacShaKeyFor("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=".getBytes(StandardCharsets.UTF_8)))
                 .build()
                 .parseSignedClaims(token);
 
