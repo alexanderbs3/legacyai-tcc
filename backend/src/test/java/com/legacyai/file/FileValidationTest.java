@@ -6,6 +6,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,9 @@ class FileValidationTest {
         when(file.getOriginalFilename()).thenReturn("README.md");
         when(file.getContentType()).thenReturn("text/markdown");
 
-        assertThrows(IllegalArgumentException.class, () -> FileService.validateUpload(file));
+        InvalidFileException exception = assertThrows(InvalidFileException.class,
+                () -> FileService.validateUpload(file));
+
+        assertEquals("Arquivo excede o limite de 50 MB.", exception.getMessage());
     }
 }

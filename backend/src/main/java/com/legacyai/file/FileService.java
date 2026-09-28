@@ -32,7 +32,7 @@ public class FileService {
     public List<UploadedFileResponse> list(UUID userId, UUID projectId) { Project project=projects.findById(projectId).orElseThrow(ResourceNotFoundException::new); ownership.verify(project.getUserId(),userId); return files.findAllByProjectIdOrderByUploadedAtDesc(projectId).stream().map(UploadedFileResponse::from).toList(); }
     static void validateUpload(MultipartFile file) {
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Arquivo excede o limite de 50 MB.");
+            throw new InvalidFileException("Arquivo excede o limite de 50 MB.");
         }
         String name=Optional.ofNullable(file.getOriginalFilename()).orElse(""); String type=Optional.ofNullable(file.getContentType()).orElse("").toLowerCase(); boolean readme=name.equals("README"); boolean zip=name.endsWith(".zip")&&(type.equals("application/zip")||type.equals("application/x-zip-compressed")); boolean markdown=name.endsWith(".md")&&(type.equals("text/markdown")||type.equals("text/plain")); boolean text=name.endsWith(".txt")&&type.equals("text/plain"); if(!(readme&&type.startsWith("text/"))&&!zip&&!markdown&&!text) throw new InvalidFileException("Tipo ou extensão de arquivo inválido");
     }

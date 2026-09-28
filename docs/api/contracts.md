@@ -115,7 +115,7 @@ Erros: 403, 404
 Content-Type: multipart/form-data
 Campo: file
 Extensoes aceitas: .zip / .md / .txt / README (sem extensao)
-Tamanho maximo: 50 MB por upload e por requisicao multipart
+Tamanho maximo: 50 MB por arquivo; 55 MB por requisicao multipart (inclui overhead do formulario)
 
 Response 201:
 {
@@ -126,7 +126,7 @@ Response 201:
   "uploadedAt": "ISO-8601"
 }
 
-Erros: 400 (extensao invalida), 403 (projeto de outro usuario), 413 (limite multipart excedido)
+Erros: 400 (arquivo invalido ou limite excedido, com `FILE_TOO_LARGE`), 403 (projeto de outro usuario)
 ```
 
 ---
