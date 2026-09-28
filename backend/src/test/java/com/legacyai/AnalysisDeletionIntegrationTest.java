@@ -71,6 +71,10 @@ class AnalysisDeletionIntegrationTest {
                         .content("{\"name\":\"Analysis Owner\",\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
                 .andExpect(status().isCreated());
         MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .with(request -> {
+                            request.setRemoteAddr("198.51.100." + (Math.floorMod(email.hashCode(), 240) + 10));
+                            return request;
+                        })
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
                 .andExpect(status().isOk())

@@ -67,7 +67,12 @@ class ProjectIntegrationTest {
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Project Owner\",\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
                 .andExpect(status().isCreated());
-        MvcResult login = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113." + (Math.floorMod(email.hashCode(), 240) + 10));
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
                 .andExpect(status().isOk()).andReturn();
         return JsonPath.read(login.getResponse().getContentAsString(), "$.token");

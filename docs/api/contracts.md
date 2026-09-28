@@ -49,7 +49,7 @@ Response 200:
   "type": "Bearer"
 }
 
-Erros: 401 (credenciais invalidas)
+Erros: 401 (credenciais invalidas), 429 (mais de 5 tentativas por IP em 5 minutos)
 ```
 
 ---
