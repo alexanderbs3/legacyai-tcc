@@ -26,35 +26,35 @@ O relatorio e normalizado independentemente do provedor:
 
 **Prioridades:** `HIGH` / `MEDIUM` / `LOW`
 
-> O relatorio deve exibir o aviso: "Este relatorio e uma recomendacao automatizada sujeita a validacao tecnica humana."
+O frontend exibe: “Este relatório contém recomendações automatizadas e deve ser validado por uma pessoa técnica antes de qualquer decisão.”
 
 ---
 
 ## Backend
 
-**Entidade:** `AnalysisResult` -- campos compostos armazenados como `TEXT` ou JSON no MVP.
+**Entidade:** `AnalysisResult` -- campos compostos em colunas `TEXT`; listas serializadas em JSON.
 **Servico:** `AnalysisService` persiste o resultado apos normalizacao pela estrategia do provedor.
 
-Quando a resposta do provedor externo nao vier no formato esperado, o adaptador da estrategia normaliza antes de persistir. O `AnalysisService` nunca faz parsing da resposta bruta do provedor.
+Cada provider extrai e normaliza a resposta externa; se não conseguir produzir o contrato esperado, a análise falha sem persistir relatório. O `AnalysisService` nunca faz parsing da resposta bruta do provider.
 
 ---
 
 ## Frontend -- Pagina de Resultado
 
 **Rota:** `/analyses/:id`
-**Endpoint:** `GET /api/analyses/{id}` -- campo `result` presente somente quando `status == COMPLETED`
+**Endpoint:** `GET /api/analyses/{id}` -- campo `result` não nulo somente quando `status == COMPLETED`; nos demais estados é `null`.
 
-### Organizacao sugerida das secoes
+### Seções exibidas atualmente
 
-1. **Summary** -- visao geral textual
-2. **Technologies** -- lista de tecnologias identificadas
-3. **Architecture** -- descricao da arquitetura
-4. **Problems** -- cards com titulo, descricao e badge de prioridade
-5. **Security Risks** -- cards com badge de prioridade
-6. **Recommendations** -- cards; destaque visual para `HIGH`
-7. **Modernization** -- lista de acoes graduais
+1. **Resumo** -- visão geral textual
+2. **Tecnologias identificadas** -- lista de tecnologias
+3. **Arquitetura** -- descrição da estrutura
+4. **Problemas** -- cards com título, descrição e prioridade
+5. **Riscos de segurança** -- cards com prioridade
+6. **Recomendações** -- cards com prioridade
+7. **Modernização** -- lista de ações
 
-**Badges de prioridade [spec]:** `HIGH` -> vermelho / `MEDIUM` -> amarelo / `LOW` -> verde
+**Prioridades:** `HIGH` → Alta, `MEDIUM` → Média, `LOW` → Baixa. Listas vazias exibem estado apropriado, sem criar achados artificiais.
 
 ---
 

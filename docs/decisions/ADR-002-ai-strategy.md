@@ -1,7 +1,7 @@
 # ADR-002 -- Strategy Pattern para Provedores de IA
 
 **Status:** Aceita
-**Contexto:** A plataforma suporta 3 provedores de IA (OpenAI, Claude, Gemini) com APIs distintas e respostas em formatos diferentes.
+**Contexto atual:** A plataforma implementa 3 providers de IA (OpenAI, Claude, DeepSeek) com APIs distintas e respostas em formatos diferentes.
 
 ## Decisao
 
@@ -23,12 +23,13 @@ public interface AIProvider {
     String getProviderName();
     boolean isAvailable();
 }
-// Implementacoes: OpenAIProvider / ClaudeProvider / GeminiProvider
+// Implementações: OpenAIProvider / ClaudeProvider / DeepSeekProvider
 ```
 
 ## Consequencias
 
 - Cada estrategia gerencia sua propria chave de API e serializacao de request/response.
-- Modo `AUTO`: usa provedor padrao configurado -- sem roteamento inteligente no MVP.
+- Modo `AUTO`: usa OpenAI como padrão -- sem roteamento inteligente no MVP.
 - Normalizacao e responsabilidade da estrategia, nunca do `AnalysisService`.
 - Testar normalizacao de cada provedor de forma independente.
+- `AnalysisInstructions` centraliza critérios comuns sem alterar o transporte/JSON de cada estratégia.

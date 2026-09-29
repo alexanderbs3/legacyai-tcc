@@ -1,7 +1,7 @@
 # LegacyAI -- Ponto de Entrada para Agentes
 
-> **Nota:** documentacao baseada no Documento de Escopo v1.0.
-> Itens nao verificados no codigo real estao marcados com [spec].
+> **Nota:** a documentação de uso foi conferida com a implementação homologada em `c454191`.
+> Em caso de divergência, verifique o código executável antes de alterar contratos ou guias.
 
 ## O que e o projeto
 

@@ -1,72 +1,30 @@
-# Feature: Upload e Processamento de Arquivos
+# Feature: Upload e processamento de arquivos
 
-> Carregar este arquivo quando trabalhar em: upload, extracao de ZIP, FileProcessor, ZipProcessor ou ProjectContextBuilder.
+> Carregar para trabalhar em `FileService`, `FileProcessor`, `ZipProcessor` ou `ProjectContextBuilder`.
 
-## Fluxo completo
+## Upload
 
-```
-POST /api/projects/{id}/files
-  -> validar extensao e tipo MIME
-  -> validar tamanho maximo
-  -> persistir metadados (UploadedFile)
-  -> armazenar arquivo temporariamente
+`POST /api/projects/{id}/files` exige projeto pertencente ao usuário e recebe o campo multipart `file`. O upload pode ocorrer na criação do projeto ou depois, na página do mesmo projeto. `GET /api/projects/{id}/files` lista metadados. A tela de Nova análise consulta essa lista e desabilita o envio quando não há arquivo; o backend também devolve HTTP 400 `INVALID_FILE` **antes** de criar uma análise de projeto sem arquivos.
 
-POST /api/projects/{id}/analyses  <- dispara o processamento
-  -> FileProcessor.processFiles(uploadedFiles)
-    -> ZipProcessor.extractSafely()  [se ZIP]
-    -> filtrar arquivos irrelevantes
-    -> ProjectContextBuilder.build(filteredFiles)
-       -> identificar linguagens e frameworks
-       -> selecionar arquivos prioritarios
-       -> montar contexto dentro do limite de tokens
-  -> AIProvider.analyze(AIAnalysisRequest com o contexto)
-```
+O `FileService` aceita somente as combinações de nome e MIME abaixo (sufixos com distinção de maiúsculas/minúsculas no upload direto):
 
----
+| Nome | MIME aceito |
+|---|---|
+| `.zip` | `application/zip`, `application/x-zip-compressed` |
+| `.md` | `text/markdown`, `text/plain` |
+| `.txt` | `text/plain` |
+| `README` sem extensão | qualquer `text/*` |
 
-## Backend -- pacote `com.legacyai.file`
+Limite por arquivo: **70 MB**; limite da requisição multipart: **75 MB** (inclui overhead). Extensão e MIME são verificados juntos no upload, mas isso não é detecção profunda de conteúdo. Falha por extensão/MIME ou limite no service retorna HTTP 400 `INVALID_FILE`; o limite multipart retorna 400 `FILE_TOO_LARGE`.
 
-### Validacoes obrigatorias (em ordem)
+O arquivo recebido é armazenado em `upload.temp-dir` (padrão `${user.home}/.legacyai/uploads`); `UploadedFile` guarda metadados e o caminho no PostgreSQL. A cópia usada durante a análise é temporária e removida ao fim; o arquivo original fica disponível para análises posteriores. A exclusão do projeto no código atual não remove explicitamente os bytes armazenados nesse diretório: não assuma limpeza física automática.
 
-| Verificacao  | Detalhe                                                                      |
-|--------------|------------------------------------------------------------------------------|
-| Extensao     | `.zip`, `.md`, `.txt`, `README`                                              |
-| Tipo MIME    | Validar conteudo -- nao confiar so na extensao                               |
-| Tamanho      | 70 MB por arquivo; 75 MB por requisicao multipart (inclui overhead)           |
-| Zip Slip     | Normalizar caminho extraido; confirmar que fica dentro do diretorio temporario|
-| Limpeza      | `finally` / try-with-resources remove temporarios apos processamento         |
+## Conteúdo analisável
 
-### Arquivos ignorados durante extracao ZIP
+Aceitação do arquivo para upload **não** garante que seu conteúdo seja analisável. Na tarefa assíncrona iniciada por `POST /api/projects/{id}/analyses`, `FileProcessor` prepara uma cópia de trabalho e `ProjectContextBuilder` extrai texto; falhas levam a status `FAILED` com mensagem pública segura. Arquivos `.txt`, `.md` e `README` precisam ser texto UTF-8 decodificável quando processados. PDF direto não é aceito; PDF dentro de ZIP não é convertido em texto.
 
-```
-.git/    node_modules/    target/    build/    dist/    .idea/    .vscode/
-Binarios / executaveis / imagens / arquivos compilados
-Arquivos acima do limite de tamanho individual [spec]
-```
+O `ZipProcessor` normaliza entradas contra o diretório de extração (proteção contra Zip Slip), ignora diretórios `.git`, `node_modules`, `target`, `build`, `dist`, `.idea` e `.vscode`, e exclui entradas binárias (NUL na amostra inicial ou texto não decodificável em UTF-8). Um ZIP aceito pode não conter texto útil; nesse caso, a análise termina em `FAILED` sem criar relatório. Não há filtro independente de tamanho por entrada extraída no código atual.
 
-### ProjectContextBuilder -- formato de saida [spec]
+`ProjectContextBuilder` ordena README antes de manifests (`pom.xml`, `package.json`, `requirements.txt`), depois configurações e demais arquivos. Identifica Java/JavaScript/TypeScript pelos nomes e Spring Boot/React por conteúdo de manifests. O texto do contexto inclui projeto, linguagens, frameworks, nomes de arquivos e trechos selecionados. O limite padrão é **12.000 caracteres Java** (`String.length`), não uma contagem de tokens específica por provider; projetos extensos podem ter contexto parcial.
 
-```
-PROJECT: <nome do projeto>
-LANGUAGES: <linguagens identificadas>
-FRAMEWORKS: <frameworks identificados>
-IMPORTANT FILES: <lista de arquivos prioritarios>
-SELECTED CONTENT: <trechos textuais relevantes e limitados>
-```
-
-**Prioridade de selecao:** README -> arquivos de build/dependencias (pom.xml, package.json, requirements.txt) -> configuracoes -> codigo-fonte relevante.
-
-**Limite de tokens:** o contexto enviado a IA deve respeitar o limite do provedor.
-Selecao de conteudo e chamada a IA devem permanecer separadas.
-
----
-
-## Contrato REST
-
--> `../api/contracts.md` -- secao Upload de Arquivos.
-
-## Regras criticas
-
-- Nunca processar arquivo sem validacao previa de extensao e tipo MIME.
-- Verificar Zip Slip antes de escrever qualquer arquivo extraido no disco.
-- Limpar temporarios mesmo em caso de falha -- usar try-with-resources ou `finally`.
+Veja [contratos REST](../api/contracts.md) e [análise](analysis.md).

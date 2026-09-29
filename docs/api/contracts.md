@@ -1,12 +1,12 @@
 # Contratos REST -- LegacyAI
 
-> [spec] Baseado no Documento de Escopo v1.0. Verificar implementacao real antes de alterar.
+> Conferido com controllers, DTOs e services da baseline `c454191`.
 
 Este documento e a **ponte entre frontend e backend**.
 Um agente de frontend pode trabalhar em telas sem ler o codigo do backend, e vice-versa.
 
 **Base URL:** `/api`
-**Autenticacao:** `Authorization: Bearer <JWT>` em todas as rotas, exceto `/api/auth/**`.
+**Autenticação:** JWT no header Bearer em todas as rotas, exceto `/api/auth/**`.
 **Content-Type:** `application/json` (exceto upload: `multipart/form-data`).
 
 ---
@@ -31,7 +31,7 @@ Response 201:
   "createdAt": "ISO-8601"
 }
 
-Erros: 400 (validacao)
+Erros: 400 (validação ou e-mail duplicado)
 ```
 
 ### POST /api/auth/login
@@ -49,7 +49,7 @@ Response 200:
   "type": "Bearer"
 }
 
-Erros: 401 (credenciais invalidas), 429 (mais de 5 tentativas por IP em 5 minutos)
+Erros: 401 (credenciais inválidas), 429 (limite de 5 tentativas por IP em 5 minutos; `Retry-After: 300`)
 ```
 
 ---
@@ -132,7 +132,8 @@ Response 201:
   "uploadedAt": "ISO-8601"
 }
 
-Erros: 400 (arquivo invalido ou limite excedido, com `FILE_TOO_LARGE`), 403 (projeto de outro usuario)
+Erros: 400 `INVALID_FILE` (extensão/MIME inválidos ou limite verificado no service),
+400 `FILE_TOO_LARGE` (limite multipart), 403 (projeto de outro usuário), 404 (projeto ausente)
 ```
 
 ---
@@ -153,7 +154,9 @@ Response 202 Accepted:
   "status": "PENDING"
 }
 
-Erros: 400 (`INVALID_FILE` quando o projeto nao possui arquivos), 403, 404
+Erros: 400 `INVALID_FILE` quando o projeto não possui arquivo (nenhuma análise é criada)
+ou para provider desconhecido; 403, 404. Provider reconhecido sem chave pode levar a
+`FAILED` depois do HTTP 202.
 ```
 
 ### GET /api/projects/{id}/analyses
@@ -183,6 +186,7 @@ Response 200: AnalysisDetail
   "status": "COMPLETED",
   "createdAt": "ISO-8601",
   "completedAt": "ISO-8601",
+  "errorMessage": null,
   "result": {
     "summary": "string",
     "technologies": ["Java 8", "Spring MVC"],
@@ -200,7 +204,10 @@ Response 200: AnalysisDetail
   }
 }
 
-Nota: result e null quando status != COMPLETED
+Status possíveis: `PENDING`, `PROCESSING`, `COMPLETED` e `FAILED`.
+`result` é `null` antes de `COMPLETED` e em `FAILED`; `completedAt` é `null`
+enquanto não terminar. Em `FAILED`, `errorMessage` contém mensagem pública
+classificada ou genérica. `projectId` permite retornar ao projeto de origem.
 Erros: 403, 404
 ```
 
@@ -226,7 +233,8 @@ Response 200:
 ]
 ```
 
-`available: false` quando a variavel de ambiente da chave nao estiver configurada.
+Os booleanos do exemplo são ilustrativos: `available` depende de chave não vazia
+no processo; não verifica validade, créditos nem conectividade antecipadamente.
 `AUTO` e aceito em `POST /api/projects/{id}/analyses` e seleciona `OPENAI`, mas nao e listado nesta resposta.
 O frontend exibe `DEEPSEEK` como "DeepSeek V4.1 Flash"; a configuracao usa o identificador de modelo `deepseek-flash`.
 
@@ -240,18 +248,23 @@ O frontend exibe `DEEPSEEK` como "DeepSeek V4.1 Flash"; a configuracao usa o ide
 | 401    | Token ausente ou expirado                          |
 | 403    | Recurso pertence a outro usuario                   |
 | 404    | Recurso nao encontrado                             |
-| 500    | Erro interno (sem detalhes expostos)               |
+| 429    | Limite de tentativas de login por IP               |
+| 500    | Erro interno                                       |
 
-**Envelope de erro:**
+**Envelope de erro** de exceções mapeadas por `ApiExceptionHandler`:
 ```json
 {
   "error": "VALIDATION_ERROR",
-  "message": "Descricao legivel sem detalhes internos"
+  "message": "Descrição legível sem detalhes internos"
 }
 ```
 
+Os erros 401/403 emitidos diretamente pelo Spring Security e os erros inesperados
+não devem ser presumidos como tendo o mesmo envelope. `INVALID_FILE` cobre também
+projeto sem arquivo; upload fora do limite multipart retorna `FILE_TOO_LARGE`.
+
 ---
 
-## Paginacao
+## Paginação
 
-[spec] Paginacao nao definida no Escopo v1.0. Listas retornam todos os itens do usuario autenticado.
+As listagens deste MVP não implementam paginação: retornam os itens acessíveis ao usuário autenticado.

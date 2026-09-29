@@ -23,7 +23,7 @@
 | Resultado           | `/analyses/:id`                   | Relatorio por secoes e prioridades        |
 | Historico           | `/history`                        | Data, projeto, provedor, status e link    |
 
-> [spec] Nomes de arquivo e rotas nao verificados no codigo real.
+> Rotas conferidas em `src/App.tsx` da baseline `c454191`.
 
 ## Padroes obrigatorios
 
@@ -60,7 +60,7 @@ api.interceptors.response.use(
 ## Polling de status de analise
 
 Pagina de Processamento faz `GET /api/analyses/{id}` em intervalos ate status `COMPLETED` ou `FAILED`.
-Intervalo sugerido: [spec].
+Intervalo atual: 3 segundos (`src/pages/ProcessingPage.tsx`).
 Parar o polling quando status final for atingido ou componente for desmontado (cleanup no `useEffect`).
 
 ## Nao fazer

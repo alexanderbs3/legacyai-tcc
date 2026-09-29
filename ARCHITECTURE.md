@@ -1,6 +1,6 @@
 # Arquitetura -- LegacyAI
 
-> [spec] Baseado no Documento de Escopo v1.0.
+> Descrição da implementação homologada em `c454191`.
 > Para trabalhar em area especifica, parta de `backend/ARCHITECTURE.md` ou `frontend/ARCHITECTURE.md`.
 
 ## Visao geral
@@ -87,6 +87,7 @@ erDiagram
         string fileName
         string fileType
         long fileSize
+        string temporaryPath
         timestamp uploadedAt
     }
     Analysis {
@@ -111,7 +112,7 @@ erDiagram
     }
 ```
 
-**Analysis.status:** `PENDING` -> `PROCESSING` -> `COMPLETED` | `FAILED`
+**Analysis.status:** `PENDING` → `PROCESSING` → `COMPLETED` ou `FAILED`. Os campos compostos do resultado são persistidos como texto (listas serializadas em JSON).
 
 ## Pipeline de analise
 
@@ -128,11 +129,11 @@ sequenceDiagram
     U->>C: POST /api/projects/{id}/analyses
     C->>AS: initiateAnalysis(projectId, provider)
     AS->>DB: salvar Analysis (PENDING)
-    AS-->>C: 202 Accepted + analysisId
+    AS-->>C: 202 Accepted + analysisId (tarefa Java assíncrona)
+    AS->>DB: Analysis -> PROCESSING
     AS->>FP: processFiles(uploadedFiles)
     FP->>PCB: buildContext(filteredFiles)
     PCB-->>AS: ProjectContext
-    AS->>DB: Analysis -> PROCESSING
     AS->>AI: analyze(AIAnalysisRequest)
     AI-->>AS: AIAnalysisResponse (normalizado)
     AS->>DB: AnalysisResult + Analysis -> COMPLETED
@@ -140,8 +141,10 @@ sequenceDiagram
 
 ## Infraestrutura
 
-- **Docker Compose:** somente PostgreSQL no MVP. Backend e frontend executam localmente.
-- **Porta PostgreSQL:** 5432 (padrao).
+- **Docker Compose:** `backend/docker-compose.yml` contém somente PostgreSQL 16; backend e frontend executam localmente.
+- **Portas locais:** PostgreSQL `localhost:5433` → contêiner `5432`; backend `8080` por padrão; Vite `5173` por padrão.
+- **Uploads:** metadados e caminho em PostgreSQL; bytes armazenados no diretório `upload.temp-dir` (padrão `${user.home}/.legacyai/uploads`). Uma cópia de trabalho para extração/análise é temporária e removida após o processamento; o arquivo enviado permanece disponível para análises posteriores.
+- **Processamento:** `CompletableFuture.runAsync` no próprio backend, sem fila/worker externo durável; frontend faz polling do detalhe da análise.
 - Detalhes de variaveis de ambiente: `SKILLS.md` -- secao Infraestrutura.
 
 ## Seguranca -- visao geral

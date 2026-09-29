@@ -1,25 +1,23 @@
 # Arquitetura do Frontend -- LegacyAI
 
-> [spec] Estrutura baseada no Documento de Escopo v1.0.
+> Rotas e estrutura conferidas com a implementação atual.
 
 ## Stack
 
-React / TypeScript / Vite / React Router v6 / Axios
+React 19 / TypeScript 6 / Vite 8 / React Router v6 / Axios
 Sem Redux no MVP -- estado local com hooks.
 
 ## Estrutura de diretorios
 
 ```
 frontend/src/
-├── components/          # Componentes reutilizaveis (Button, Card, StatusBadge, ProviderSelector...)
+├── components/          # AppShell, Badge, Button, Card, EmptyState, Input...
 ├── pages/               # Um arquivo por pagina da aplicacao
 ├── services/            # Funcoes de chamada a API
 │   └── api.ts           # Instancia Axios com interceptors de auth e erro
-├── hooks/               # Custom hooks (useAuth, useProject, useAnalysisPolling...)
 ├── types/               # Interfaces TypeScript correspondendo aos DTOs da API
-├── utils/               # Funcoes utilitarias puras (formatacao de data, prioridade...)
-├── routes/              # Definicao de rotas e ProtectedRoute
-└── App.tsx              # Raiz: provedor de rotas
+├── routes/              # ProtectedRoute (guarda de rotas)
+└── App.tsx              # Declaração das rotas
 ```
 
 ## Fluxo de autenticacao
@@ -33,57 +31,20 @@ Logout -> limpar token -> redirect /login
 
 ## Integracao com API
 
-- **Base URL:** `/api` (proxy Vite em dev -- verificar `vite.config.ts` [spec]).
+- **Base URL:** `/api` (proxy Vite em `vite.config.ts` para `localhost:8080`).
 - **Token:** injetado via interceptor em toda requisicao autenticada.
 - **Tipos:** definir interfaces em `src/types/` para cada DTO de resposta.
 - **Contrato completo de endpoints:** `../docs/api/contracts.md`.
 
-## Interfaces TypeScript esperadas [spec]
+## Tipos da API
 
-```typescript
-// src/types/index.ts
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AnalysisSummary {
-  id: string;
-  provider: string;
-  status: AnalysisStatus;
-  createdAt: string;
-  completedAt: string | null;
-  errorMessage: string | null;
-}
-
-interface AnalysisDetail extends AnalysisSummary {
-  result: AnalysisResult | null;
-}
-
-interface AnalysisResult {
-  summary: string;
-  technologies: string[];
-  architecture: string;
-  problems: Issue[];
-  securityRisks: Issue[];
-  recommendations: Issue[];
-  modernization: string[];
-}
-
-interface Issue {
-  title: string;
-  description: string;
-  priority: Priority;
-}
-
-type AnalysisStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
-```
+`src/types/project.ts` define projeto/arquivo; `src/types/auth.ts` define autenticação;
+`src/types/analysis.ts` define `Analysis` (inclui `projectId`, status, `errorMessage`
+e `result`), `AnalysisSummary`, `ReportResult` e `ReportItem` com prioridades
+`HIGH`, `MEDIUM`, `LOW`. O resultado pode ser `null` enquanto a análise não
+terminou ou quando está em `FAILED`.
 
 ## Responsividade
 
-Interface simples e demonstravel para o TCC. Responsividade basica e suficiente.
-Nao e necessario design system elaborado ou animacoes.
+Rotas protegidas incluem Dashboard, projetos, análises e histórico; existe fallback 404.
+O Dashboard, o menu e o relatório foram homologados em viewport de 375 px.

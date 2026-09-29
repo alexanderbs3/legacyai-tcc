@@ -29,7 +29,7 @@ POST /api/auth/login
 ### Filtro JWT
 
 - Intercepta todas as requisicoes exceto `/api/auth/**`.
-- Extrai token do header `Authorization: Bearer <token>`.
+- Extrai o JWT do header Bearer.
 - Valida assinatura e expiracao.
 - Popula `SecurityContextHolder` com o usuario autenticado.
 
@@ -48,15 +48,15 @@ if (!resource.getUserId().equals(currentUser.getId())) {
 
 - Nunca retornar `passwordHash` em nenhuma resposta da API.
 - JWT nao deve expor dados alem de `userId` e `email`.
-- Chave de assinatura JWT exclusivamente em variavel de ambiente (`JWT_SECRET`), codificada em Base64 e com pelo menos 32 bytes apos decodificacao.
+- Chave de assinatura JWT via `JWT_SECRET`: texto convertido em bytes UTF-8, com pelo menos 32 bytes para HS256; não se decodifica Base64.
 - Login retorna `429` e `Retry-After: 300` quando o limite de tentativas por IP e excedido.
 
 ---
 
 ## Frontend
 
-- Armazenar token apos login (memoria ou `localStorage`).
-- Interceptor Axios injeta `Authorization: Bearer <token>` em toda requisicao.
+- Armazenar o token em `localStorage` (`legacyai.auth.token`) após login.
+- Interceptor Axios injeta o token no header Bearer em requisições autenticadas.
 - `ProtectedRoute` verifica token antes de renderizar; redireciona para `/login` se ausente.
 - Ao receber `401`: limpar token + redirecionar para `/login`.
 - Logout: limpar token + `redirect /login`.

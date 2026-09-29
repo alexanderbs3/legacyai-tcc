@@ -33,13 +33,13 @@ Conhecimento especifico para trabalhar **neste projeto**. Nao e tutorial das tec
 - Validar extensao E tipo MIME -- nao confiar apenas no nome.
 - Extracao de ZIP: normalizar caminhos e confirmar que ficam dentro do diretorio temporario (Zip Slip).
 - Limpeza de temporarios em `finally` ou try-with-resources.
-- `ProjectContextBuilder`: contexto limitado por tokens; priorizar README e arquivos de build.
+- `ProjectContextBuilder`: contexto limitado a 12.000 caracteres Java por padrão, não por tokens; priorizar README e manifests.
 
 ### PostgreSQL + JPA
 
-- UUID como PK. Relacionamentos: `@OneToMany`, `@ManyToOne`.
+- UUID como PK; entidades de projeto, arquivo, análise e resultado usam campos UUID para referência (não presumir anotações `@OneToMany`/`@ManyToOne`).
 - `Analysis.status` como enum Java (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`).
-- Campos compostos de `AnalysisResult` como `TEXT` ou JSON no MVP.
+- Campos compostos de `AnalysisResult` em colunas `TEXT`, com listas serializadas em JSON.
 
 ### Testes
 
@@ -66,7 +66,7 @@ Conhecimento especifico para trabalhar **neste projeto**. Nao e tutorial das tec
 
 ### Estado e autenticacao
 
-- Token JWT em memoria ou `localStorage`; sem Redux no MVP.
+- Token JWT em `localStorage`; sem Redux no MVP.
 - `ProtectedRoute` verifica token; redireciona para `/login` se ausente.
 - Limpar token no logout.
 
@@ -75,14 +75,15 @@ Conhecimento especifico para trabalhar **neste projeto**. Nao e tutorial das tec
 ## Infraestrutura
 
 - **Docker Compose:** somente PostgreSQL. Backend e frontend rodam localmente.
-- **`.env`** (nao versionado): valores reais. **`.env.example`** (versionado): template vazio.
+- **`.env`** (nao versionado): exportar no shell ou configurar no launcher; o backend não carrega automaticamente. **`.env.example`** (versionado): placeholders sem segredos.
 
-### Variaveis de ambiente obrigatorias
+### Variáveis de ambiente no fluxo local
 
 ```
-POSTGRES_PASSWORD
-JWT_SECRET
-OPENAI_API_KEY
-ANTHROPIC_API_KEY
-DEEPSEEK_API_KEY
+POSTGRES_PASSWORD            # Compose
+SPRING_DATASOURCE_PASSWORD  # Spring/Flyway; mesmo valor do Compose local
+JWT_SECRET                   # UTF-8, pelo menos 32 bytes
+OPENAI_API_KEY               # opcional, habilita OpenAI
+ANTHROPIC_API_KEY            # opcional, habilita Claude
+DEEPSEEK_API_KEY             # opcional, habilita DeepSeek
 ```
