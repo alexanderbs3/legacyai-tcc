@@ -131,6 +131,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .nav-link { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 9px 10px; border: 0; border-radius: 6px; color: var(--text); background: transparent; font-size: 0.9rem; font-weight: 600; text-align: left; text-decoration: none; }
 .nav-link:hover { color: var(--text-h); background: var(--accent-bg); text-decoration: none; }
 .nav-link.active { color: var(--accent); background: var(--accent-bg); }
+.mobile-menu-toggle { display: none; }
 .nav-logout { width: 100%; margin-top: auto; }
 .app-content { width: min(1120px, 100%); margin: 0 auto; padding: 42px clamp(20px, 5vw, 56px); }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
@@ -163,6 +164,8 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .detail-sections, .report-sections { display: grid; gap: 18px; }
 .section-card { display: grid; gap: 16px; }
 .file-list, .analysis-list { display: grid; gap: 8px; }
+.recent-analyses { margin-top: 28px; }
+.recent-analyses .section-heading { margin-bottom: 12px; }
 .file-row, .analysis-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .file-row:last-child, .analysis-row:last-child { padding-bottom: 0; border-bottom: 0; }
 .row-primary { display: flex; align-items: center; gap: 10px; color: var(--text-h); font-weight: 600; }
@@ -205,9 +208,13 @@ tbody tr:last-child td { border-bottom: 0; }
   .app-shell { display: block; }
   .sidebar { position: sticky; z-index: 5; flex: none; width: 100%; height: auto; flex-direction: row; align-items: center; gap: 8px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--border); }
   .brand-sidebar { padding: 0; margin-right: auto; }
+  .mobile-menu-toggle { display: flex; }
   .sidebar nav { display: flex; gap: 2px; }
+  .sidebar nav.mobile-nav-expanded { position: absolute; top: 100%; right: 0; flex-direction: column; min-width: 160px; padding: 8px; border: 1px solid var(--border); background: var(--surface-muted); box-shadow: var(--shadow); }
   .nav-link { min-height: 36px; padding: 8px; }
   .nav-link span:last-child { display: none; }
+  .mobile-menu-toggle span:last-child { display: inline; }
+  .sidebar nav.mobile-nav-expanded .nav-link span:last-child { display: inline; }
   .nav-logout { width: auto; margin: 0; }
   .app-content { padding: 28px 20px; }
   .page-header { align-items: stretch; flex-direction: column; }

@@ -69,7 +69,9 @@ o tratamento de erros; a OpenAI continua usando JSON Schema com `strict=true` pa
 | `PENDING`     | Criada, aguardando inicio do processamento                 |
 | `PROCESSING`  | Contexto sendo construido ou chamada a IA em andamento     |
 | `COMPLETED`   | Relatorio disponivel em `AnalysisResult`                   |
-| `FAILED`      | Erro; `errorMessage` preenchido em `Analysis`              |
+| `FAILED`      | Erro; `errorMessage` recebe mensagem pública classificada ou genérica segura |
+
+Mensagens inesperadas não são persistidas nem expostas diretamente; a leitura de análises antigas também filtra mensagens não classificadas.
 
 ---
 
