@@ -67,6 +67,14 @@ h3 { font-size: 1rem; }
 p { margin: 0; }
 ul { margin: 0; padding: 0; list-style: none; }
 
+.material-icons {
+  display: inline-block; font-family: 'Material Icons'; font-weight: normal; font-style: normal;
+  font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap;
+  word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased;
+}
+.icon { vertical-align: middle; }
+.link-icon { font-size: 1rem; vertical-align: -2px; }
+
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px;
   padding: 8px 12px; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
