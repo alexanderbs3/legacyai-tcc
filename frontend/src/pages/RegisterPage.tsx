@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { Input } from '../components/Input'
@@ -66,14 +67,10 @@ export function RegisterPage() {
   return (
     <main className="auth-page page-enter">
       <Card className="auth-card">
-        <Link className="brand" to="/login">
-          <span>Legacy</span>
-          <strong>AI</strong>
-        </Link>
+        <Brand to="/login" />
 
         <div className="auth-heading">
           <h1>Crie sua conta</h1>
-          <p>Centralize diagnósticos para evoluir seu legado com clareza.</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { Input } from '../components/Input'
@@ -53,14 +54,10 @@ export function LoginPage() {
   return (
     <main className="auth-page page-enter">
       <Card className="auth-card">
-        <Link className="brand" to="/login">
-          <span>Legacy</span>
-          <strong>AI</strong>
-        </Link>
+        <Brand to="/login" />
 
         <div className="auth-heading">
           <h1>Boas-vindas de volta</h1>
-          <p>Entre para continuar a análise dos seus sistemas.</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>

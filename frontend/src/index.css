@@ -1,15 +1,15 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  --text: #5c6574;
+  --text-h: #0f1b2d;
+  --bg: #fffdf9;
+  --border: #e3e0d8;
+  --code-bg: #f4f1ea;
+  --accent: #c2680c;
+  --accent-bg: rgba(194, 104, 12, 0.12);
+  --accent-border: rgba(194, 104, 12, 0.45);
+  --social-bg: rgba(244, 241, 234, 0.6);
   --surface: #fff;
-  --surface-muted: #faf9fc;
+  --surface-muted: #faf8f3;
   --danger: #dc2626;
   --danger-bg: #fef2f2;
   --success: #15803d;
@@ -18,7 +18,7 @@
   --warning-bg: #fffbeb;
   --shadow: rgba(0, 0, 0, 0.08) 0 10px 28px -14px, rgba(0, 0, 0, 0.05) 0 4px 10px -5px;
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'Space Grotesk', system-ui, 'Segoe UI', sans-serif;
   --mono: ui-monospace, Consolas, monospace;
   font: 16px/1.5 var(--sans);
   letter-spacing: 0.01em;
@@ -33,24 +33,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --surface: #1c1d24;
-    --surface-muted: #1a1b22;
+    --text: #9aa3b2;
+    --text-h: #f4f1ea;
+    --bg: #0f1b2d;
+    --border: #243247;
+    --code-bg: #16233c;
+    --accent: #e8a44c;
+    --accent-bg: rgba(232, 164, 76, 0.16);
+    --accent-border: rgba(232, 164, 76, 0.5);
+    --social-bg: rgba(36, 50, 71, 0.5);
+    --surface: #17273f;
+    --surface-muted: #132236;
     --danger: #f87171;
     --danger-bg: rgba(127, 29, 29, 0.24);
     --success: #4ade80;
     --success-bg: rgba(20, 83, 45, 0.3);
     --warning: #facc15;
     --warning-bg: rgba(113, 63, 18, 0.28);
-    --shadow: rgba(0, 0, 0, 0.36) 0 10px 28px -14px, rgba(0, 0, 0, 0.26) 0 4px 10px -5px;
+    --shadow: rgba(0, 0, 0, 0.45) 0 10px 28px -14px, rgba(0, 0, 0, 0.3) 0 4px 10px -5px;
   }
 }
 
@@ -68,8 +68,8 @@ p { margin: 0; }
 ul { margin: 0; padding: 0; list-style: none; }
 
 button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px;
-  padding: 10px 14px; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px;
+  padding: 8px 12px; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 button:active { transform: scale(0.98); }
@@ -92,7 +92,7 @@ input, textarea {
 }
 textarea { min-height: 108px; resize: vertical; }
 input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--text) 72%, transparent); }
-input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(170, 59, 255, 0.15); }
+input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
 input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); }
 input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
 .input-wrap { position: relative; }
@@ -130,9 +130,10 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 
 .auth-page { display: grid; min-height: 100svh; place-items: center; padding: 24px; }
 .auth-card { width: min(420px, 100%); display: grid; gap: 26px; }
-.brand { color: var(--text-h); font-size: 1.22rem; font-weight: 700; letter-spacing: -0.06em; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; text-decoration: none; }
 .brand:hover { text-decoration: none; }
-.brand strong { color: var(--accent); }
+.brand-logo { display: block; height: 30px; width: auto; }
+.brand-sidebar .brand-logo { height: 26px; }
 .auth-heading { display: grid; gap: 8px; }
 .auth-heading p { font-size: 0.92rem; }
 .auth-footer { text-align: center; font-size: 0.9rem; }

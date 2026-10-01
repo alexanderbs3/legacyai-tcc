@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { clearToken } from '../services/api'
+import { Brand } from './Brand'
 
 type AppShellProps = {
   children: ReactNode
@@ -19,7 +20,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand brand-sidebar" to="/dashboard"><span>Legacy</span><strong>AI</strong></Link>
+        <Brand to="/dashboard" className="brand-sidebar" />
         <button className="mobile-menu-toggle nav-link" type="button" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen((open) => !open)}><span aria-hidden="true">☰</span></button>
         <nav id="mobile-navigation" className={menuOpen ? 'mobile-nav-expanded' : ''} aria-label="Navegação principal">
           {navigation.map((item) => {
