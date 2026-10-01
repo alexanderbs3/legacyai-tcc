@@ -17,10 +17,10 @@
   --warning: #a16207;
   --warning-bg: #fffbeb;
   --shadow: rgba(0, 0, 0, 0.08) 0 10px 28px -14px, rgba(0, 0, 0, 0.05) 0 4px 10px -5px;
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: 'Space Grotesk', system-ui, 'Segoe UI', sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-  font: 16px/1.5 var(--sans);
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  font: 16px/1.5 var(--font-body);
   letter-spacing: 0.01em;
   color-scheme: light dark;
   color: var(--text);
@@ -105,12 +105,13 @@ button, input, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-h1, h2, h3 { margin: 0; color: var(--text-h); font-family: var(--heading); }
+h1, h2, h3 { margin: 0; color: var(--text-h); font-family: var(--font-display); }
 h1 { font-size: clamp(1.65rem, 3vw, 2.15rem); letter-spacing: -0.045em; line-height: 1.15; font-weight: 650; }
 h2 { font-size: 1.1rem; letter-spacing: -0.02em; }
 h3 { font-size: 1rem; }
 p { margin: 0; }
 ul { margin: 0; padding: 0; list-style: none; }
+code, pre, kbd, .mono { font-family: var(--font-mono); }
 
 .material-icons {
   display: inline-block; font-family: 'Material Icons'; font-weight: normal; font-style: normal;
@@ -183,7 +184,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 
 .auth-page { display: grid; min-height: 100svh; place-items: center; padding: 24px; }
 .auth-card { width: min(420px, 100%); display: grid; gap: 26px; }
-.brand { display: inline-flex; align-items: center; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; font-family: var(--font-display); text-decoration: none; }
 .brand:hover { text-decoration: none; }
 .brand-logo { display: block; height: 30px; width: auto; }
 .brand-sidebar .brand-logo { height: 26px; }

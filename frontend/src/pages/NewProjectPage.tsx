@@ -105,7 +105,7 @@ export function NewProjectPage() {
               </label>
               {file && (
                 <div className="selected-file">
-                  <strong>{file.name}</strong>
+                  <strong className="mono">{file.name}</strong>
                   <span>{(file.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB</span>
                 </div>
               )}

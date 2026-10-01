@@ -65,7 +65,7 @@ test('renders seven sections, counts, and localized textual priorities without c
   assert.deepEqual(headings, ['Resumo', 'Tecnologias identificadas', 'Arquitetura',
     'Problemas (1)', 'Riscos de segurança (1)', 'Recomendações (1)', 'Modernização'])
   const badges = rendered.filter((item) => item?.type === 'Badge')
-  assert.deepEqual(badges.map((item) => item.props.children), ['Alta', 'Média', 'Baixa'])
+  assert.deepEqual(badges.map((item) => flatten(item.props.children).filter((part) => typeof part === 'string').join('')), ['Alta', 'Média', 'Baixa'])
   assert.deepEqual(badges.map((item) => item.props.variant), ['high', 'medium', 'low'])
 })
 
