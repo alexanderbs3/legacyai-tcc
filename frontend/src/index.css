@@ -156,6 +156,13 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 .mobile-menu-toggle { display: none; }
 .nav-logout { width: 100%; margin-top: auto; }
 .app-content { width: min(1120px, 100%); margin: 0 auto; padding: 42px clamp(20px, 5vw, 56px); }
+.breadcrumb { margin-bottom: 18px; }
+.breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.breadcrumb li { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.breadcrumb a { color: var(--text); font-size: 0.85rem; font-weight: 600; }
+.breadcrumb a:hover { color: var(--accent); text-decoration: none; }
+.breadcrumb span { overflow: hidden; color: var(--text-h); font-size: 0.85rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb-separator { font-size: 1.1rem; color: var(--text); opacity: 0.55; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
 .page-header > div:first-child { display: grid; gap: 7px; }
 .page-header p { max-width: 620px; font-size: 0.93rem; }

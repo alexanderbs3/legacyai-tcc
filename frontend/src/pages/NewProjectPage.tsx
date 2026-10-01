@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/AppShell'
+import { Breadcrumb } from '../components/Breadcrumb'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { Icon } from '../components/Icon'
@@ -64,6 +65,7 @@ export function NewProjectPage() {
     <AppShell>
       <div className="page-enter">
         <PageHeader title="Novo projeto" subtitle="Adicione contexto e um arquivo para começar a investigação." />
+        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Novo projeto' }]} />
         <Card className="centered-card">
           <form onSubmit={submit} noValidate>
             <Input
