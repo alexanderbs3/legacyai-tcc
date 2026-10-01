@@ -97,6 +97,20 @@ class ProjectAnalyzerTest {
     }
 
     @Test
+    void appliesZipUncompressedByteLimitAcrossAllArchivesInOneProcessingRun() throws Exception {
+        Path firstArchive = zipWithText("first.zip", "README.md", "123456");
+        Path secondArchive = zipWithText("second.zip", "src/Main.java", "abcdef");
+        List<UploadedFile> uploads = List.of(
+                new UploadedFile(UUID.randomUUID(), "first.zip", "application/zip", Files.size(firstArchive), firstArchive.toString()),
+                new UploadedFile(UUID.randomUUID(), "second.zip", "application/zip", Files.size(secondArchive), secondArchive.toString()));
+
+        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor(new ZipProcessor(10, 10))
+                .processFiles(new Project("Demo", "", UUID.randomUUID()), uploads));
+
+        assertTrue(error.getMessage().contains("conteúdo descompactado"));
+    }
+
+    @Test
     void rejectsNonUtf8DirectTextWithUsefulMessage() throws Exception {
         Path source = tempDir.resolve("invalid.txt");
         Files.write(source, new byte[] {(byte) 0x80});
@@ -106,5 +120,15 @@ class ProjectAnalyzerTest {
         InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor().processFiles(
                 new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
         assertTrue(error.getMessage().contains("UTF-8"));
+    }
+
+    private Path zipWithText(String archiveName, String entryName, String content) throws Exception {
+        Path archive = tempDir.resolve(archiveName);
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new ZipEntry(entryName));
+            zip.write(content.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return archive;
     }
 }

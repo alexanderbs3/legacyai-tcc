@@ -151,8 +151,12 @@ class AnalysisFailureLoggingIntegrationTest {
                 AnalysisService.publicFailureMessage(new IllegalStateException("DeepSeek recusou as credenciais. Verifique DEEPSEEK_API_KEY.")));
         assertEquals("O upload não contém arquivos de texto UTF-8 processáveis. Extraia o conteúdo de PDFs em TXT/MD ou inclua código-fonte.",
                 AnalysisService.publicFailureMessage(new com.legacyai.exception.InvalidFileException("O upload não contém arquivos de texto UTF-8 processáveis. Extraia o conteúdo de PDFs em TXT/MD ou inclua código-fonte.")));
+        assertEquals("O arquivo ZIP excede o limite de entradas permitidas.",
+                AnalysisService.publicFailureMessage(new com.legacyai.exception.InvalidFileException("O arquivo ZIP excede o limite de entradas permitidas.")));
+        assertEquals("O conteúdo descompactado do ZIP excede o limite permitido.",
+                AnalysisService.publicFailureMessage(new com.legacyai.exception.InvalidFileException("O conteúdo descompactado do ZIP excede o limite permitido.")));
         assertEquals("Não foi possível concluir a análise. Tente novamente mais tarde.",
-                AnalysisService.publicFailureMessage(new IllegalStateException("Authorization: internal-data")));
+                AnalysisService.publicFailureMessage(new IllegalStateException("Authorization: ***")));
         assertEquals("Não foi possível concluir a análise. Tente novamente mais tarde.",
                 AnalysisService.publicFailureMessage(new IllegalStateException()));
     }

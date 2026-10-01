@@ -4,6 +4,7 @@ import com.legacyai.analysis.ProjectContextBuilder;
 import com.legacyai.entity.Project;
 import com.legacyai.entity.UploadedFile;
 import com.legacyai.exception.InvalidFileException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -18,18 +19,28 @@ import java.util.List;
 
 @Component
 public class FileProcessor {
-    private final ZipProcessor zip = new ZipProcessor();
+    private final ZipProcessor zip;
     private final ProjectContextBuilder builder = new ProjectContextBuilder();
+
+    @Autowired
+    public FileProcessor(ZipProcessor zip) {
+        this.zip = zip;
+    }
+
+    public FileProcessor() {
+        this(new ZipProcessor());
+    }
 
     public String processFiles(Project project, List<UploadedFile> files) throws IOException {
         Path work = Files.createTempDirectory("legacyai-analysis-").toAbsolutePath().normalize();
         try {
             List<Path> selected = new ArrayList<>();
+            ZipProcessor.ExtractionBudget zipBudget = zip.newExtractionBudget();
             for (UploadedFile file : files) {
                 Path source = Path.of(file.getTemporaryPath());
                 if (file.getFileName().toLowerCase().endsWith(".zip")) {
                     // ZipProcessor validates every entry against the same extraction root before writing.
-                    selected.addAll(zip.extractSafely(source, work));
+                    selected.addAll(zip.extractSafely(source, work, zipBudget));
                 } else if (Files.isRegularFile(source)) {
                     Path target = work.resolve(file.getFileName()).normalize();
                     if (!target.startsWith(work)) {

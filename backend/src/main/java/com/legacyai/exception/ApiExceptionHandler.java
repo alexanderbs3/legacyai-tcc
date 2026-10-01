@@ -47,6 +47,11 @@ public class ApiExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "Arquivo excede o limite de 70 MB.");
     }
 
+    @ExceptionHandler(StorageCleanupException.class)
+    public ResponseEntity<Map<String, String>> handleStorageCleanup(StorageCleanupException exception) {
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE_ERROR", exception.getMessage());
+    }
+
     private ResponseEntity<Map<String, String>> error(HttpStatus status, String error, String message) {
         return ResponseEntity.status(status).body(Map.of("error", error, "message", message));
     }

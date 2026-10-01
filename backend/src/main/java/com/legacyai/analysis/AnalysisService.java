@@ -45,6 +45,8 @@ public class AnalysisService {
             "Arquivo de texto deve estar em UTF-8. Converta o arquivo e tente novamente.",
             "O upload não contém arquivos de texto UTF-8 processáveis. Extraia o conteúdo de PDFs em TXT/MD ou inclua código-fonte.",
             "Caminho ZIP inválido",
+            "O arquivo ZIP excede o limite de entradas permitidas.",
+            "O conteúdo descompactado do ZIP excede o limite permitido.",
             "OpenAI recusou as credenciais. Verifique OPENAI_API_KEY.",
             "OpenAI não pôde processar a análise: quota ou saldo insuficiente.",
             "OpenAI não pôde processar a análise: limite de requisições atingido. Tente novamente mais tarde.",

@@ -91,7 +91,9 @@ Erros: 400, 403, 404
 
 ```
 Response 204 No Content
-Erros: 403, 404
+Erros: 403, 404, 500 `STORAGE_ERROR` quando a limpeza física dos uploads não
+pode ser concluída com segurança. A resposta usa mensagem genérica e o projeto
+permanece disponível para evitar remoção lógica sem tratamento dos arquivos.
 ```
 
 **ProjectResponse:**
@@ -122,6 +124,7 @@ Content-Type: multipart/form-data
 Campo: file
 Extensoes aceitas: .zip / .md / .txt / README (sem extensao)
 Tamanho maximo: 70 MB por arquivo; 75 MB por requisicao multipart (inclui overhead do formulario)
+Quota total: 350 MB por usuário, configurável por `upload.max-total-size-per-user`
 
 Response 201:
 {
@@ -132,7 +135,7 @@ Response 201:
   "uploadedAt": "ISO-8601"
 }
 
-Erros: 400 `INVALID_FILE` (extensão/MIME inválidos ou limite verificado no service),
+Erros: 400 `INVALID_FILE` (extensão/MIME inválidos, quota total por usuário ou limite verificado no service),
 400 `FILE_TOO_LARGE` (limite multipart), 403 (projeto de outro usuário), 404 (projeto ausente)
 ```
 
