@@ -5,6 +5,7 @@ import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { Input } from '../components/Input'
 import { api } from '../services/api'
+import { authErrorMessage } from '../services/authErrors'
 import type { RegisterRequest } from '../types/auth'
 
 export function RegisterPage() {
@@ -25,8 +26,8 @@ export function RegisterPage() {
     try {
       await api.post<unknown, unknown, RegisterRequest>('/auth/register', { name, email, password })
       navigate('/login')
-    } catch {
-      setError('Não foi possível criar a conta.')
+    } catch (cause) {
+      setError(authErrorMessage(cause, 'Não foi possível criar a conta.'))
     } finally {
       setLoading(false)
     }

@@ -93,6 +93,8 @@ input, textarea {
 textarea { min-height: 108px; resize: vertical; }
 input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--text) 72%, transparent); }
 input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(170, 59, 255, 0.15); }
+input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); }
+input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
 .input-wrap { position: relative; }
 .input-wrap.has-icon input { padding-left: 40px; }
 .input-icon { position: absolute; top: 50%; left: 14px; color: var(--text); transform: translateY(-50%); }
@@ -114,6 +116,17 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .page-enter { animation: fade-up 200ms ease-out both; }
+
+.global-loader { position: fixed; z-index: 50; top: 0; left: 0; overflow: hidden; width: 100%; height: 3px; background: transparent; }
+.global-loader::before {
+  display: block; position: absolute; top: 0; left: 0; width: 40%; height: 100%; border-radius: 999px;
+  background: var(--accent); content: ''; animation: global-loader-slide 1.1s ease-in-out infinite;
+}
+@keyframes global-loader-slide {
+  0% { left: -40%; }
+  60% { left: 100%; }
+  100% { left: 100%; }
+}
 
 .auth-page { display: grid; min-height: 100svh; place-items: center; padding: 24px; }
 .auth-card { width: min(420px, 100%); display: grid; gap: 26px; }

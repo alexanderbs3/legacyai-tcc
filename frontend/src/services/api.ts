@@ -1,4 +1,6 @@
+
 import axios from 'axios'
+import { requestEnded, requestStarted } from './requestActivity'
 
 const TOKEN_KEY = 'legacyai.auth.token'
 
@@ -15,12 +17,17 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  requestStarted()
   return config
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    requestEnded()
+    return response
+  },
   (error) => {
+    requestEnded()
     const isAuthRoute = window.location.pathname === '/login' || window.location.pathname === '/register'
     if (error.response?.status === 401 && !isAuthRoute) {
       clearToken()

@@ -22,6 +22,9 @@ function loadApi(pathname) {
   vm.runInNewContext(compiled, {
     exports,
     require: (name) => {
+      if (name === './requestActivity') {
+        return { requestStarted() {}, requestEnded() {} }
+      }
       assert.equal(name, 'axios')
       return { __esModule: true, default: { create: () => client } }
     },
