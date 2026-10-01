@@ -35,6 +35,7 @@ function mount(path, api = {}) {
       }, clearToken: () => {}, hasToken: () => true }
       if (name === 'react/jsx-runtime') return { jsx: element, jsxs: element }
       if (name === '../components/Badge') return { Badge: ({ children }) => element('Badge', { children }) }
+      if (name === '../utils/validation') return { isValidEmail: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) }
       const component = name.split('/').pop()
       return { [component]: component }
     },
@@ -142,19 +143,19 @@ test('registration requires confirmation, rejects mismatch, omits confirmation i
   let fields = all(view, (item) => item.type === 'Input')
   const confirmation = fields.find((item) => item.props.label === 'Confirmar senha')
   assert.ok(confirmation)
-  assert.equal(confirmation.props.required, true)
   fields.find((item) => item.props.label === 'Nome').props.onChange({ target: { value: 'Test' } })
   fields.find((item) => item.props.label === 'E-mail').props.onChange({ target: { value: 't@example.com' } })
   fields.find((item) => item.props.label === 'Senha').props.onChange({ target: { value: 'test-password' } })
   await all(page.render('RegisterPage'), (item) => item.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(page.calls.length, 0)
   view = page.render('RegisterPage')
-  assert.ok(text(view).includes('Confirme sua senha.'))
   fields = all(view, (item) => item.type === 'Input')
+  assert.equal(fields.find((item) => item.props.label === 'Confirmar senha').props.error, 'Confirme sua senha.')
   fields.find((item) => item.props.label === 'Confirmar senha').props.onChange({ target: { value: 'other-password' } })
   await all(page.render('RegisterPage'), (item) => item.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(page.calls.length, 0)
-  assert.ok(text(page.render('RegisterPage')).includes('As senhas não coincidem.'))
+  view = page.render('RegisterPage')
+  assert.equal(all(view, (item) => item.type === 'Input').find((item) => item.props.label === 'Confirmar senha').props.error, 'As senhas não coincidem.')
   all(page.render('RegisterPage'), (item) => item.type === 'Input').find((item) => item.props.label === 'Confirmar senha').props.onChange({ target: { value: 'test-password' } })
   await all(page.render('RegisterPage'), (item) => item.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(page.calls.length, 1)

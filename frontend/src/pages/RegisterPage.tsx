@@ -7,6 +7,28 @@ import { Input } from '../components/Input'
 import { api } from '../services/api'
 import { authErrorMessage } from '../services/authErrors'
 import type { RegisterRequest } from '../types/auth'
+import { isValidEmail } from '../utils/validation'
+
+const MIN_PASSWORD_LENGTH = 8
+
+type FieldErrors = {
+  name?: string
+  email?: string
+  password?: string
+  confirmPassword?: string
+}
+
+function validate(name: string, email: string, password: string, confirmPassword: string): FieldErrors {
+  const errors: FieldErrors = {}
+  if (!name.trim()) errors.name = 'Informe seu nome.'
+  if (!email.trim()) errors.email = 'Informe seu e-mail.'
+  else if (!isValidEmail(email)) errors.email = 'Informe um e-mail válido.'
+  if (!password) errors.password = 'Informe uma senha.'
+  else if (password.length < MIN_PASSWORD_LENGTH) errors.password = `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
+  if (!confirmPassword) errors.confirmPassword = 'Confirme sua senha.'
+  else if (password !== confirmPassword) errors.confirmPassword = 'As senhas não coincidem.'
+  return errors
+}
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -14,14 +36,22 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  function clearFieldError(field: keyof FieldErrors) {
+    if (fieldErrors[field]) setFieldErrors((current) => ({ ...current, [field]: undefined }))
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    if (!confirmPassword) { setError('Confirme sua senha.'); return }
-    if (password !== confirmPassword) { setError('As senhas não coincidem.'); return }
+
+    const errors = validate(name, email, password, confirmPassword)
+    setFieldErrors(errors)
+    if (errors.name || errors.email || errors.password || errors.confirmPassword) return
+
     setLoading(true)
     try {
       await api.post<unknown, unknown, RegisterRequest>('/auth/register', { name, email, password })
@@ -33,5 +63,76 @@ export function RegisterPage() {
     }
   }
 
-  return <main className="auth-page page-enter"><Card className="auth-card"><Link className="brand" to="/login"><span>Legacy</span><strong>AI</strong></Link><div className="auth-heading"><h1>Crie sua conta</h1><p>Centralize diagnósticos para evoluir seu legado com clareza.</p></div><form onSubmit={handleSubmit}><Input label="Nome" placeholder="Seu nome" value={name} onChange={(event) => setName(event.target.value)} required /><Input label="E-mail" type="email" placeholder="voce@empresa.com" value={email} onChange={(event) => setEmail(event.target.value)} required /><Input label="Senha" type="password" minLength={8} placeholder="Mínimo de 8 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} required /><Input label="Confirmar senha" type="password" minLength={8} placeholder="Repita sua senha" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /><Button type="submit" loading={loading}>Criar conta</Button></form>{error && <p className="alert" role="alert">{error}</p>}<p className="auth-footer">Já tem uma conta? <Link to="/login">Entrar</Link></p></Card></main>
+  return (
+    <main className="auth-page page-enter">
+      <Card className="auth-card">
+        <Link className="brand" to="/login">
+          <span>Legacy</span>
+          <strong>AI</strong>
+        </Link>
+
+        <div className="auth-heading">
+          <h1>Crie sua conta</h1>
+          <p>Centralize diagnósticos para evoluir seu legado com clareza.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <Input
+            label="Nome"
+            placeholder="Seu nome"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+              clearFieldError('name')
+            }}
+            error={fieldErrors.name}
+          />
+
+          <Input
+            label="E-mail"
+            type="email"
+            placeholder="voce@empresa.com"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              clearFieldError('email')
+            }}
+            error={fieldErrors.email}
+          />
+
+          <Input
+            label="Senha"
+            type="password"
+            placeholder="Mínimo de 8 caracteres"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              clearFieldError('password')
+            }}
+            error={fieldErrors.password}
+          />
+
+          <Input
+            label="Confirmar senha"
+            type="password"
+            placeholder="Repita sua senha"
+            value={confirmPassword}
+            onChange={(event) => {
+              setConfirmPassword(event.target.value)
+              clearFieldError('confirmPassword')
+            }}
+            error={fieldErrors.confirmPassword}
+          />
+
+          <Button type="submit" loading={loading}>Criar conta</Button>
+        </form>
+
+        {error && <p className="alert" role="alert">{error}</p>}
+
+        <p className="auth-footer">
+          Já tem uma conta? <Link to="/login">Entrar</Link>
+        </p>
+      </Card>
+    </main>
+  )
 }

@@ -7,8 +7,7 @@ import { Input } from '../components/Input'
 import { api, setToken } from '../services/api'
 import { authErrorMessage } from '../services/authErrors'
 import type { AuthResponse, LoginRequest } from '../types/auth'
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { isValidEmail } from '../utils/validation'
 
 type FieldErrors = {
   email?: string
@@ -18,7 +17,7 @@ type FieldErrors = {
 function validate(email: string, password: string): FieldErrors {
   const errors: FieldErrors = {}
   if (!email.trim()) errors.email = 'Informe seu e-mail.'
-  else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'Informe um e-mail válido.'
+  else if (!isValidEmail(email)) errors.email = 'Informe um e-mail válido.'
   if (!password) errors.password = 'Informe sua senha.'
   return errors
 }
