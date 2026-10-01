@@ -111,6 +111,7 @@ test('new project advertises supported files and displays a safe upload error wi
   const picker = find(initial, (item) => item.type === 'input' && item.props?.type === 'file')
   assert.ok(picker.props.accept.includes('.txt'))
   assert.ok(!picker.props.accept.includes('.pdf'))
+  find(initial, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto').props.onChange({ target: { value: 'Projeto Teste' } })
   picker.props.onChange({ target: { files: [{ name: 'invalid.txt', size: 10 }] } })
   const form = find(page.render(), (item) => item.type === 'form')
   await form.props.onSubmit({ preventDefault() {} })
