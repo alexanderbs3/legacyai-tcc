@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { clearToken } from '../services/api'
 import { Brand } from './Brand'
 import { Icon } from './Icon'
+import { ThemeToggle } from './ThemeToggle'
 
 type AppShellProps = {
   children: ReactNode
@@ -31,9 +32,12 @@ export function AppShell({ children }: AppShellProps) {
             return <Link key={item.to} to={item.to} aria-label={item.label} onClick={() => setMenuOpen(false)} className={`nav-link ${active ? 'active' : ''}`}><Icon name={item.icon} /><span>{item.label}</span></Link>
           })}
         </nav>
-        <button className="nav-link nav-logout" type="button" aria-label="Sair" onClick={() => { clearToken(); window.location.assign('/login') }}>
-          <Icon name="logout" /><span>Sair</span>
-        </button>
+        <div className="sidebar-footer">
+          <ThemeToggle />
+          <button className="nav-link nav-logout" type="button" aria-label="Sair" onClick={() => { clearToken(); window.location.assign('/login') }}>
+            <Icon name="logout" /><span>Sair</span>
+          </button>
+        </div>
       </aside>
       <main className="app-content">{children}</main>
     </div>
