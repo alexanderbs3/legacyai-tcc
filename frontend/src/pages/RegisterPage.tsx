@@ -11,6 +11,9 @@ import type { RegisterRequest } from '../types/auth'
 import { isValidEmail } from '../utils/validation'
 
 const MIN_PASSWORD_LENGTH = 8
+const MAX_NAME_LENGTH = 100
+const MAX_EMAIL_LENGTH = 255
+const MAX_PASSWORD_LENGTH = 128
 
 type FieldErrors = {
   name?: string
@@ -22,10 +25,13 @@ type FieldErrors = {
 function validate(name: string, email: string, password: string, confirmPassword: string): FieldErrors {
   const errors: FieldErrors = {}
   if (!name.trim()) errors.name = 'Informe seu nome.'
+  else if (name.length > MAX_NAME_LENGTH) errors.name = `O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres.`
   if (!email.trim()) errors.email = 'Informe seu e-mail.'
+  else if (email.length > MAX_EMAIL_LENGTH) errors.email = `O e-mail deve ter no máximo ${MAX_EMAIL_LENGTH} caracteres.`
   else if (!isValidEmail(email)) errors.email = 'Informe um e-mail válido.'
   if (!password) errors.password = 'Informe uma senha.'
   else if (password.length < MIN_PASSWORD_LENGTH) errors.password = `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
+  else if (password.length > MAX_PASSWORD_LENGTH) errors.password = `A senha deve ter no máximo ${MAX_PASSWORD_LENGTH} caracteres.`
   if (!confirmPassword) errors.confirmPassword = 'Confirme sua senha.'
   else if (password !== confirmPassword) errors.confirmPassword = 'As senhas não coincidem.'
   return errors
@@ -78,6 +84,7 @@ export function RegisterPage() {
             label="Nome"
             placeholder="Seu nome"
             value={name}
+            maxLength={MAX_NAME_LENGTH}
             onChange={(event) => {
               setName(event.target.value)
               clearFieldError('name')
@@ -90,6 +97,7 @@ export function RegisterPage() {
             type="email"
             placeholder="voce@empresa.com"
             value={email}
+            maxLength={MAX_EMAIL_LENGTH}
             onChange={(event) => {
               setEmail(event.target.value)
               clearFieldError('email')
@@ -102,6 +110,8 @@ export function RegisterPage() {
             type="password"
             placeholder="Mínimo de 8 caracteres"
             value={password}
+            minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
             onChange={(event) => {
               setPassword(event.target.value)
               clearFieldError('password')
@@ -114,6 +124,8 @@ export function RegisterPage() {
             type="password"
             placeholder="Repita sua senha"
             value={confirmPassword}
+            minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
             onChange={(event) => {
               setConfirmPassword(event.target.value)
               clearFieldError('confirmPassword')

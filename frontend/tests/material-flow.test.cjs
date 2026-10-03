@@ -121,6 +121,44 @@ test('new project advertises supported files and displays a safe upload error wi
   assert.equal(posts.length, 2)
 })
 
+test('new project normalizes its name before accepting UTF-16 boundaries', async () => {
+  const posts = []
+  const page = mount('NewProjectPage', 'NewProjectPage', {
+    post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
+  })
+  const initial = page.render()
+  const name = find(initial, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
+  const description = find(initial, (item) => item.type === 'textarea')
+  assert.equal(description.props.maxLength, 2000)
+  name.props.onChange({ target: { value: ` \t${'😀'.repeat(75)} \n` } })
+  description.props.onChange({ target: { value: '😀'.repeat(1000) } })
+  await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
+  assert.equal(posts.length, 1)
+  assert.equal(posts[0].payload.name, '😀'.repeat(75))
+  assert.equal(posts[0].payload.name.length, 150)
+  assert.equal(posts[0].payload.description.length, 2000)
+})
+
+test('new project rejects name 151 and description 2001 without losing values', async () => {
+  const posts = []
+  const page = mount('NewProjectPage', 'NewProjectPage', {
+    post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
+  })
+  let view = page.render()
+  find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto').props.onChange({ target: { value: 'n'.repeat(151) } })
+  find(view, (item) => item.type === 'textarea').props.onChange({ target: { value: 'd'.repeat(2001) } })
+  await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
+  view = page.render()
+  const name = find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
+  const description = find(view, (item) => item.type === 'textarea')
+  assert.equal(posts.length, 0)
+  assert.equal(name.props.value.length, 151)
+  assert.equal(description.props.value.length, 2001)
+  assert.match(name.props.error, /150/)
+  assert.equal(description.props['aria-invalid'], true)
+  assert.ok(JSON.stringify(view).includes('2000'))
+})
+
 test('FAILED stops showing the spinner and offers project and history exits', async () => {
   const page = mount('ProcessingPage', 'ProcessingPage', {
     get: async () => ({ data: { status: 'FAILED', projectId: 'project-id', errorMessage: 'O upload não contém arquivos processáveis.' } }),

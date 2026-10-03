@@ -129,11 +129,13 @@ test('mobile navigation has labelled icon controls and a communicating toggle', 
   assert.ok(toggle.props['aria-label'])
   const nav = all(before, (item) => item.type === 'nav' && item.props.id === toggle.props['aria-controls'])[0]
   assert.ok(nav)
+  assert.equal(nav.props.className, '')
   for (const link of all(nav, (item) => item.type === 'Link')) assert.ok(link.props['aria-label'])
   toggle.props.onClick()
   const after = page.render('AppShell', { children: 'conteúdo' })
   const expanded = all(after, (item) => item.type === 'button' && item.props['aria-controls'])[0]
   assert.equal(expanded.props['aria-expanded'], true)
+  assert.equal(all(after, (item) => item.type === 'nav' && item.props.id === expanded.props['aria-controls'])[0].props.className, 'mobile-nav-expanded')
   assert.ok(all(after, (item) => item.type === 'button' && item.props['aria-label'] === 'Sair').length)
 })
 
@@ -161,6 +163,120 @@ test('registration requires confirmation, rejects mismatch, omits confirmation i
   assert.equal(page.calls.length, 1)
   assert.equal(page.calls[0].url, '/auth/register')
   assert.equal(Object.prototype.hasOwnProperty.call(page.calls[0].payload, 'confirmPassword'), false)
+})
+
+test('registration accepts backend DTO boundaries and exposes matching input limits', async () => {
+  const page = mount('src/pages/RegisterPage.tsx')
+  const fields = all(page.render('RegisterPage'), (item) => item.type === 'Input')
+  const maxEmail = `${'e'.repeat(64)}@${'d'.repeat(63)}.${'d'.repeat(63)}.${'d'.repeat(62)}`
+  const values = {
+    Nome: 'n'.repeat(100),
+    'E-mail': maxEmail,
+    Senha: 'p'.repeat(128),
+    'Confirmar senha': 'p'.repeat(128),
+  }
+  for (const field of fields) field.props.onChange({ target: { value: values[field.props.label] } })
+  assert.equal(fields.find((item) => item.props.label === 'Nome').props.maxLength, 100)
+  assert.equal(fields.find((item) => item.props.label === 'E-mail').props.maxLength, 255)
+  assert.equal(fields.find((item) => item.props.label === 'Senha').props.maxLength, 128)
+  await all(page.render('RegisterPage'), (item) => item.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(page.calls.length, 1)
+})
+
+test('registration rejects values above backend DTO limits', async () => {
+  const page = mount('src/pages/RegisterPage.tsx')
+  const fields = all(page.render('RegisterPage'), (item) => item.type === 'Input')
+  const password = 'p'.repeat(129)
+  const maxEmail = `${'e'.repeat(64)}@${'d'.repeat(63)}.${'d'.repeat(63)}.${'d'.repeat(62)}`
+  fields.find((item) => item.props.label === 'Nome').props.onChange({ target: { value: 'n'.repeat(101) } })
+  fields.find((item) => item.props.label === 'E-mail').props.onChange({ target: { value: `${maxEmail}d` } })
+  fields.find((item) => item.props.label === 'Senha').props.onChange({ target: { value: password } })
+  fields.find((item) => item.props.label === 'Confirmar senha').props.onChange({ target: { value: password } })
+  await all(page.render('RegisterPage'), (item) => item.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  const invalid = all(page.render('RegisterPage'), (item) => item.type === 'Input')
+  assert.equal(page.calls.length, 0)
+  assert.match(invalid.find((item) => item.props.label === 'Nome').props.error, /100/)
+  assert.match(invalid.find((item) => item.props.label === 'E-mail').props.error, /255/)
+  assert.match(invalid.find((item) => item.props.label === 'Senha').props.error, /128/)
+})
+
+test('history preserves successful rows and warns when project results are partial', async () => {
+  const page = mount('src/pages/HistoryPage.tsx', { get: async (url) => {
+    if (url === '/projects') return { data: [{ id: 'ok', name: 'Disponível' }, { id: 'failed', name: 'Indisponível' }] }
+    if (url.includes('/ok/')) return { data: [analysis('a1', 'COMPLETED', '2026-03-06T12:00:00Z')] }
+    throw Error('internal client details')
+  } })
+  page.render('HistoryPage')
+  await page.load()
+  const view = page.render('HistoryPage')
+  assert.ok(text(view).includes('Disponível'))
+  assert.ok(text(view).includes('histórico está incompleto'))
+  assert.ok(!text(view).includes('internal client details'))
+  const remove = all(view, (item) => item.type === 'Button' && item.props['aria-label']?.startsWith('Excluir análise de Disponível'))[0]
+  assert.ok(remove)
+  remove.props.onClick()
+  const confirmation = page.render('HistoryPage')
+  assert.ok(all(confirmation, (item) => item.type === 'Button' && item.props['aria-label']?.startsWith('Confirmar exclusão da análise de Disponível')).length)
+  assert.ok(all(confirmation, (item) => item.type === 'Button' && item.props['aria-label']?.startsWith('Cancelar exclusão da análise de Disponível')).length)
+})
+
+test('history reports total analysis-query failure without an empty state', async () => {
+  const page = mount('src/pages/HistoryPage.tsx', { get: async (url) => {
+    if (url === '/projects') return { data: [{ id: 'failed-1', name: 'Um' }, { id: 'failed-2', name: 'Dois' }] }
+    throw Error('internal client details')
+  } })
+  page.render('HistoryPage')
+  await page.load()
+  const view = page.render('HistoryPage')
+  assert.ok(text(view).includes('Não foi possível carregar o histórico. Tente novamente em instantes.'))
+  assert.ok(!text(view).includes('alguns projetos'))
+  assert.ok(!text(view).includes('internal client details'))
+  assert.equal(all(view, (item) => item.type === 'EmptyState').length, 0)
+})
+
+test('history distinguishes a successful empty result from request failures', async () => {
+  const page = mount('src/pages/HistoryPage.tsx', { get: async (url) => ({ data: url === '/projects'
+    ? [{ id: 'empty', name: 'Sem análises' }] : [] }) })
+  page.render('HistoryPage')
+  await page.load()
+  const view = page.render('HistoryPage')
+  const empty = all(view, (item) => item.type === 'EmptyState')[0]
+  assert.equal(empty.props.title, 'Nenhuma análise no histórico')
+  assert.ok(!text(view).includes('Não foi possível carregar o histórico'))
+})
+
+test('history does not present a partial empty result as complete absence', async () => {
+  const page = mount('src/pages/HistoryPage.tsx', { get: async (url) => {
+    if (url === '/projects') return { data: [{ id: 'empty', name: 'Disponível' }, { id: 'failed', name: 'Indisponível' }] }
+    if (url.includes('/empty/')) return { data: [] }
+    throw Error('unavailable')
+  } })
+  page.render('HistoryPage')
+  await page.load()
+  const view = page.render('HistoryPage')
+  const empty = all(view, (item) => item.type === 'EmptyState')[0]
+  assert.equal(empty.props.title, 'Nenhum resultado disponível nos projetos carregados')
+  assert.ok(text(view).includes('histórico está incompleto'))
+})
+
+test('repeated delete actions identify their project', async () => {
+  const page = mount('src/pages/DashboardPage.tsx', { get: async (url) => ({ data: url === '/projects'
+    ? [{ id: 'p1', name: 'Sistema crítico', description: '', createdAt: '2026-01-01T00:00:00Z' }] : [] }) })
+  page.render('DashboardPage')
+  await page.load()
+  let view = page.render('DashboardPage')
+  const remove = all(view, (item) => item.type === 'Button' && item.props['aria-label'] === 'Excluir projeto Sistema crítico')[0]
+  assert.ok(remove)
+  remove.props.onClick()
+  view = page.render('DashboardPage')
+  assert.ok(all(view, (item) => item.type === 'Button' && item.props['aria-label'] === 'Confirmar exclusão do projeto Sistema crítico').length)
+  assert.ok(all(view, (item) => item.type === 'Button' && item.props['aria-label'] === 'Cancelar exclusão do projeto Sistema crítico').length)
+})
+
+test('navigation links styled as buttons do not contain Button controls', () => {
+  for (const file of ['src/pages/DashboardPage.tsx', 'src/pages/ProjectDetailPage.tsx', 'src/pages/NotFoundPage.tsx']) {
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /<Link\b[^>]*>\s*<Button\b/)
+  }
 })
 
 test('unknown frontend route has a safe fallback and home link', () => {

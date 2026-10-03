@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -34,7 +33,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse create(UUID userId, ProjectRequest request) {
         return ProjectResponse.from(projects.save(new Project(
-                request.name().trim(), Optional.ofNullable(request.description()).orElse(""), userId)));
+                request.name(), normalizedDescription(request.description()), userId)));
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +44,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse update(UUID userId, UUID id, ProjectRequest request) {
         Project project = owned(userId, id);
-        project.update(request.name().trim(), Optional.ofNullable(request.description()).orElse(""));
+        project.update(request.name(), normalizedDescription(request.description()));
         return ProjectResponse.from(project);
     }
 
@@ -66,5 +65,9 @@ public class ProjectService {
         Project project = projects.findById(id).orElseThrow(ResourceNotFoundException::new);
         ownership.verify(project.getUserId(), userId);
         return project;
+    }
+
+    private String normalizedDescription(String description) {
+        return description == null || description.isBlank() ? "" : description;
     }
 }

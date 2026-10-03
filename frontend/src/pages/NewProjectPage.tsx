@@ -14,11 +14,25 @@ import type { Project, ProjectRequest } from '../types/project'
 
 type FieldErrors = {
   name?: string
+  description?: string
 }
 
-function validate(name: string): FieldErrors {
+const MAX_PROJECT_NAME_LENGTH = 150
+const MAX_PROJECT_DESCRIPTION_LENGTH = 2000
+
+function normalizeProjectName(value: string): string {
+  let start = 0
+  let end = value.length
+  while (start < end && value.charCodeAt(start) <= 0x20) start += 1
+  while (end > start && value.charCodeAt(end - 1) <= 0x20) end -= 1
+  return value.slice(start, end)
+}
+
+function validate(name: string, description: string): FieldErrors {
   const errors: FieldErrors = {}
-  if (!name.trim()) errors.name = 'Informe o nome do projeto.'
+  if (!name) errors.name = 'Informe o nome do projeto.'
+  else if (name.length > MAX_PROJECT_NAME_LENGTH) errors.name = `O nome deve ter no máximo ${MAX_PROJECT_NAME_LENGTH} caracteres.`
+  if (description.length > MAX_PROJECT_DESCRIPTION_LENGTH) errors.description = `A descrição deve ter no máximo ${MAX_PROJECT_DESCRIPTION_LENGTH} caracteres.`
   return errors
 }
 
@@ -37,15 +51,16 @@ export function NewProjectPage() {
     event.preventDefault()
     if (loading || createdProjectId) return
 
-    const errors = validate(name)
+    const normalizedName = normalizeProjectName(name)
+    const errors = validate(normalizedName, description)
     setFieldErrors(errors)
-    if (errors.name) return
+    if (errors.name || errors.description) return
 
     setError('')
     setLoading(true)
     let projectCreated = false
     try {
-      const { data } = await api.post<Project, { data: Project }, ProjectRequest>('/projects', { name, description })
+      const { data } = await api.post<Project, { data: Project }, ProjectRequest>('/projects', { name: normalizedName, description })
       projectCreated = true
       setCreatedProjectId(data.id)
       if (file) {
@@ -77,7 +92,7 @@ export function NewProjectPage() {
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
-                if (fieldErrors.name) setFieldErrors({})
+                if (fieldErrors.name) setFieldErrors((current) => ({ ...current, name: undefined }))
               }}
               error={fieldErrors.name}
             />
@@ -88,8 +103,15 @@ export function NewProjectPage() {
                 id="project-description"
                 placeholder="Descreva brevemente o sistema e seu contexto."
                 value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                maxLength={MAX_PROJECT_DESCRIPTION_LENGTH}
+                aria-invalid={Boolean(fieldErrors.description)}
+                aria-describedby={fieldErrors.description ? 'project-description-error' : undefined}
+                onChange={(event) => {
+                  setDescription(event.target.value)
+                  if (fieldErrors.description) setFieldErrors((current) => ({ ...current, description: undefined }))
+                }}
               />
+              {fieldErrors.description && <p id="project-description-error" className="field-error">{fieldErrors.description}</p>}
             </div>
 
             <div className="field">

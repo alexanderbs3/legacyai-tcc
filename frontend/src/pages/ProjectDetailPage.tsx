@@ -51,98 +51,14 @@ export function ProjectDetailPage() {
       setFile(undefined)
       formElement.reset()
     } catch (cause) {
-      const limitMessage = `Arquivo selecionado excede o limite de tamanho permitido. ` +
-      `Remova pastas geradas (node_modules, target, dist, build, .git) antes de compactar, ` +
-      `ou divida o projeto em mais de um ZIP e envie cada parte separadamente.`
-      setUploadError(uploadErrorMessage(cause, limitMessage))
+      setUploadError(uploadErrorMessage(cause, 'Não foi possível enviar o arquivo. Tente novamente.'))
     } finally {
       uploadInFlight.current = false
       setUploading(false)
     }
   }
 
-  if (!project && !error) {
-    return <AppShell><div className="loading-state"><Spinner /> Carregando projeto…</div></AppShell>
-  }
-  if (error) {
-    return <AppShell><p className="alert page-enter" role="alert">{error}</p></AppShell>
-  }
-
-  return (
-    <AppShell>
-      <div className="page-enter">
-        <PageHeader
-          title={project!.name}
-          subtitle={project!.description || 'Sem descrição informada.'}
-          action={<Link to={`/projects/${id}/analyses/new`}><Button>Nova análise</Button></Link>}
-        />
-        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: project!.name }]} />
-        <div className="detail-sections">
-          <Card className="section-card">
-            <div className="section-heading">
-              <h2>Arquivos enviados</h2>
-              <span>{files.length}</span>
-            </div>
-            {files.length === 0 ? (
-              <EmptyState title="Nenhum arquivo enviado" subtitle="Adicione um arquivo abaixo para disponibilizá-lo para análise." />
-            ) : (
-              <ul className="file-list">
-                {files.map((item) => (
-                  <li className="file-row" key={item.id}>
-                    <div className="row-primary">
-                      <Icon name="description" className="row-icon" />
-                      <span className="mono">{item.fileName}</span>
-                    </div>
-                    <span className="row-secondary">{(item.fileSize / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form onSubmit={upload}>
-              <div className="field">
-                <label htmlFor="additional-file">Adicionar material ao projeto</label>
-                <input
-                  id="additional-file"
-                  type="file"
-                  accept=".zip,.txt,.md,text/plain,text/markdown"
-                  onChange={(event) => setFile(event.target.files?.[0])}
-                  disabled={uploading}
-                />
-              </div>
-              {uploading && <p role="status">Enviando arquivo: {uploadProgress}%</p>}
-              {uploadError && <p className="alert" role="alert">{uploadError}</p>}
-              <div className="form-actions">
-                <Button type="submit" loading={uploading} disabled={!file}>Adicionar arquivo</Button>
-              </div>
-            </form>
-          </Card>
-          <Card className="section-card">
-            <div className="section-heading">
-              <h2>Análises recentes</h2>
-              <span>{analyses.length}</span>
-            </div>
-            {analyses.length === 0 ? (
-              <EmptyState title="Nenhuma análise ainda" subtitle="Inicie uma análise para gerar um diagnóstico do sistema." />
-            ) : (
-              <ul className="analysis-list">
-                {analyses.map((analysis) => (
-                  <li className="analysis-row" key={analysis.id}>
-                    <div>
-                      <div className="row-primary">
-                        {analysis.provider} <Badge variant={statusVariant(analysis.status)}>{analysis.status}</Badge>
-                      </div>
-                      <span className="row-secondary">{new Date(analysis.createdAt).toLocaleString('pt-BR')}</span>
-                    </div>
-                    <Link to={analysis.status === 'COMPLETED' ? `/analyses/${analysis.id}` : `/analyses/${analysis.id}/processing`}>
-                      Abrir <Icon name="arrow_forward" className="link-icon" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </div>
-    </AppShell>
-  )
+  if (!project && !error) return <AppShell><div className="loading-state"><Spinner /> Carregando projeto…</div></AppShell>
+  if (error) return <AppShell><p className="alert page-enter" role="alert">{error}</p></AppShell>
+  return <AppShell><div className="page-enter"><PageHeader title={project!.name} subtitle={project!.description || 'Sem descrição informada.'} action={<Link className="button button-primary" to={`/projects/${id}/analyses/new`}>Nova análise</Link>} /><Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: project!.name }]} /><div className="detail-sections"><Card className="section-card"><div className="section-heading"><h2>Arquivos enviados</h2><span>{files.length}</span></div>{files.length === 0 ? <EmptyState title="Nenhum arquivo enviado" subtitle="Adicione um arquivo abaixo para disponibilizá-lo para análise." /> : <ul className="file-list">{files.map((item) => <li className="file-row" key={item.id}><div className="row-primary"><Icon name="description" className="row-icon" /><span className="mono">{item.fileName}</span></div><span className="row-secondary">{(item.fileSize / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB</span></li>)}</ul>}<form onSubmit={upload}><div className="field"><label htmlFor="additional-file">Adicionar material ao projeto</label><input id="additional-file" type="file" accept=".zip,.txt,.md,text/plain,text/markdown" onChange={(event) => setFile(event.target.files?.[0])} disabled={uploading} /></div>{uploading && <p role="status">Enviando arquivo: {uploadProgress}%</p>}{uploadError && <p className="alert" role="alert">{uploadError}</p>}<div className="form-actions"><Button type="submit" loading={uploading} disabled={!file}>Adicionar arquivo</Button></div></form></Card><Card className="section-card"><div className="section-heading"><h2>Análises recentes</h2><span>{analyses.length}</span></div>{analyses.length === 0 ? <EmptyState title="Nenhuma análise ainda" subtitle="Inicie uma análise para gerar um diagnóstico do sistema." /> : <ul className="analysis-list">{analyses.map((analysis) => <li className="analysis-row" key={analysis.id}><div><div className="row-primary">{analysis.provider} <Badge variant={statusVariant(analysis.status)}>{analysis.status}</Badge></div><span className="row-secondary">{new Date(analysis.createdAt).toLocaleString('pt-BR')}</span></div><Link to={analysis.status === 'COMPLETED' ? `/analyses/${analysis.id}` : `/analyses/${analysis.id}/processing`}>Abrir <Icon name="arrow_forward" className="link-icon" /></Link></li>)}</ul>}</Card></div></div></AppShell>
 }

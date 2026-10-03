@@ -14,6 +14,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,6 +49,80 @@ class ProjectIntegrationTest {
         String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
         mockMvc.perform(get("/api/projects/" + id).header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void normalizesNamesAndBlankDescriptionsOnCreateAndPut() throws Exception {
+        String token = tokenFor("project-normalization@example.com");
+        MvcResult created = mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  Legacy core  \",\"description\":\"   \"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Legacy core"))
+                .andExpect(jsonPath("$.description").value(""))
+                .andReturn();
+        String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(put("/api/projects/" + id).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  Renamed core  \",\"description\":\"\\t \\n\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed core"))
+                .andExpect(jsonPath("$.description").value(""));
+
+        mockMvc.perform(get("/api/projects/" + id).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed core"))
+                .andExpect(jsonPath("$.description").value(""));
+
+        mockMvc.perform(put("/api/projects/" + id).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + "n".repeat(151) + "\",\"description\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Requisição inválida"));
+    }
+
+    @Test
+    void persistsMaximumDescriptionAndReturnsSafeValidationErrors() throws Exception {
+        String token = tokenFor("project-boundaries@example.com");
+        String name = "n".repeat(150);
+        String description = "d".repeat(2000);
+        mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  " + name + "  \",\"description\":\"" + description + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value(name))
+                .andExpect(jsonPath("$.description").value(description));
+
+        mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Project\",\"description\":\"" + "d".repeat(2001) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Requisição inválida"));
+    }
+
+    @Test
+    void putWithOmittedDescriptionClearsExistingValue() throws Exception {
+        String token = tokenFor("project-put-omitted@example.com");
+        MvcResult created = mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"PUT project\",\"description\":\"Existing description\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(put("/api/projects/" + id).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"PUT project renamed\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("PUT project renamed"))
+                .andExpect(jsonPath("$.description").value(""));
+
+        mockMvc.perform(get("/api/projects/" + id).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value(""));
     }
 
     @Test

@@ -9,7 +9,7 @@ import java.util.UUID;
 public class Project {
  @Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;
  @Column(name = "name", nullable = false) private String name;
- @Column(name = "description") private String description;
+ @Column(name = "description", columnDefinition = "TEXT") private String description;
  @Column(name = "user_id", nullable = false, updatable = false) private UUID userId;
  @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
  @Column(name = "updated_at", nullable = false) private Instant updatedAt;

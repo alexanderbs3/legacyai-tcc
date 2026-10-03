@@ -28,6 +28,13 @@ test('shows a generic server-error message for 5xx responses', () => {
   assert.equal(message({ response: { status: 500, data: {} } }), 'Serviço indisponível. Tente novamente em instantes.')
 })
 
+test('handles login rate limiting with a safe Retry-After message', () => {
+  assert.equal(message({ response: { status: 429, headers: { 'retry-after': '300' }, data: { message: 'internal limiter details' } } }),
+    'Muitas tentativas de login. Tente novamente em 5 minutos.')
+  assert.equal(message({ response: { status: 429, headers: { 'retry-after': 'invalid' }, data: { message: 'internal limiter details' } } }),
+    'Muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.')
+})
+
 test('falls back to the provided message for unexpected response shapes', () => {
   assert.equal(message({ response: { status: 403, data: { error: 'FORBIDDEN', message: 'secret detail' } } }), 'Não foi possível autenticar.')
   assert.equal(message({ response: { status: 400, data: { error: 'UNKNOWN' } } }), 'Não foi possível autenticar.')

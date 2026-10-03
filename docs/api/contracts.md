@@ -72,6 +72,10 @@ Response 201: ProjectResponse
 Erros: 400 (validacao)
 ```
 
+`name` é obrigatório, normalizado com remoção de espaços nas extremidades e limitado
+a 150 unidades UTF-16. `description` é limitada a 2000 unidades UTF-16; valor ausente
+ou composto somente por espaços é persistido como string vazia.
+
 ### GET /api/projects/{id}
 
 ```
@@ -86,6 +90,9 @@ Request:  { "name": "string", "description": "string" }
 Response 200: ProjectResponse
 Erros: 400, 403, 404
 ```
+
+O `PUT` substitui os dois campos. Se `description` for omitida ou `null`, o valor
+persistido passa a ser uma string vazia; a operação não possui semântica de PATCH.
 
 ### DELETE /api/projects/{id}
 
