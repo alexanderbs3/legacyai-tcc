@@ -91,7 +91,7 @@ export function DashboardPage() {
                     </div>
                     {confirmingProjectId === project.id ? (
                       <div>
-                        <p>Excluir o projeto '{project.name}'? Esta ação não pode ser desfeita.</p>
+                        <p>Excluir o projeto <strong className="confirm-project-name">{project.name}</strong>? Esta ação não pode ser desfeita.</p>
                         <div className="confirm-actions">
                           <Button variant="danger" loading={deletingProjectId === project.id} onClick={() => handleDeleteProject(project)}>Sim</Button>
                           <Button variant="secondary" disabled={deletingProjectId === project.id} onClick={() => setConfirmingProjectId(null)}>Cancelar</Button>

@@ -248,6 +248,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 .progress-value { height: 100%; border-radius: inherit; background: var(--accent); transition: width 200ms ease; }
 .form-actions { display: flex; justify-content: flex-end; }
 .confirm-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.confirm-project-name { overflow-wrap: break-word; word-break: break-word; color: var(--text-h); }
 
 .detail-sections, .report-sections { display: grid; gap: 18px; }
 .section-card { display: grid; gap: 16px; }
