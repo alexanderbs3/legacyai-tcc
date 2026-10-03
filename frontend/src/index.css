@@ -232,6 +232,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 .project-card-header, .project-meta, .section-heading, .file-row, .analysis-row, .issue-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .project-card-header { align-items: flex-start; flex-wrap: wrap; }
 .project-card h2 { min-width: 0; overflow-wrap: break-word; word-break: break-word; font-size: 1.08rem; }
+.project-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
 .project-meta { margin-top: auto; color: var(--text); font-size: 0.82rem; }
 .project-count { flex-shrink: 0; white-space: nowrap; color: var(--accent); font-weight: 700; }
 .empty-state { display: grid; min-height: 260px; place-content: center; gap: 9px; padding: 30px; border: 1px dashed var(--border); border-radius: 8px; text-align: center; }

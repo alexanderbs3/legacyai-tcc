@@ -84,7 +84,7 @@ export function DashboardPage() {
                           : `${project.analysisCount} ${project.analysisCount === 1 ? 'análise' : 'análises'}`}
                       </span>
                     </div>
-                    <p>{project.description || 'Sem descrição informada.'}</p>
+                    <p className="project-description" title={project.description || undefined}>{project.description || 'Sem descrição informada.'}</p>
                     <div className="project-meta">
                       <span>Criado em {new Date(project.createdAt).toLocaleDateString('pt-BR')}</span>
                       <Link to={`/projects/${project.id}`}>Ver projeto <Icon name="arrow_forward" className="link-icon" /></Link>
