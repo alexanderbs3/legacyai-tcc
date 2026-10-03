@@ -54,5 +54,50 @@ export function NewAnalysisPage() {
     }
   }
 
-  return <AppShell><div className="page-enter"><PageHeader title="Nova análise" subtitle="Escolha o provedor que fará a leitura técnica do projeto." /><Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Projeto', to: `/projects/${id}` }, { label: 'Nova análise' }]} />{loadingProviders || loadingFiles ? <div className="loading-state"><Spinner /> {loadingProviders ? 'Carregando provedores…' : 'Verificando arquivos do projeto…'}</div> : <Card className="centered-card">{filesError && <p className="alert" role="alert">{filesError} Volte ao projeto e tente novamente.</p>}{!filesError && !hasMaterial && <p role="status">Este projeto ainda não possui arquivo para análise. Adicione um arquivo antes de continuar.</p>}{!materialReady && <Link to={`/projects/${id}`}>Voltar ao projeto e adicionar arquivo</Link>}<div className="provider-grid">{providers.map((item) => <button key={item.name} type="button" className={`provider-card ${provider === item.name ? 'selected' : ''} ${!item.available ? 'unavailable' : ''}`} onClick={() => setProvider(item.name)} disabled={!item.available} aria-pressed={provider === item.name}><strong>{item.name === 'DEEPSEEK' ? 'DeepSeek V4.1 Flash' : item.displayName}</strong><span>{item.available ? item.name === 'AUTO' ? 'Escolha automática' : 'Disponível para análise' : 'Indisponível'}</span></button>)}</div>{providers.length === 0 && <p className="alert" role="alert">Nenhum provedor está disponível no momento.</p>}{error && <p className="alert" role="alert">{error}</p>}<div className="form-actions"><Button type="button" onClick={submit} loading={submitting} disabled={!materialReady || !providers.some((item) => item.name === provider && item.available)}>Iniciar análise</Button></div></Card>}</div></AppShell>
+  return (
+    <AppShell>
+      <div className="page-enter">
+        <PageHeader title="Nova análise" subtitle="Escolha o provedor que fará a leitura técnica do projeto." />
+        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Projeto', to: `/projects/${id}` }, { label: 'Nova análise' }]} />
+        {loadingProviders || loadingFiles ? (
+          <div className="loading-state">
+            <Spinner /> {loadingProviders ? 'Carregando provedores…' : 'Verificando arquivos do projeto…'}
+          </div>
+        ) : (
+          <Card className="centered-card">
+            {filesError && <p className="alert" role="alert">{filesError} Volte ao projeto e tente novamente.</p>}
+            {!filesError && !hasMaterial && <p role="status">Este projeto ainda não possui arquivo para análise. Adicione um arquivo antes de continuar.</p>}
+            {!materialReady && <Link to={`/projects/${id}`}>Voltar ao projeto e adicionar arquivo</Link>}
+            <div className="provider-grid">
+              {providers.map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  className={`provider-card ${provider === item.name ? 'selected' : ''} ${!item.available ? 'unavailable' : ''}`}
+                  onClick={() => setProvider(item.name)}
+                  disabled={!item.available}
+                  aria-pressed={provider === item.name}
+                >
+                  <strong>{item.name === 'DEEPSEEK' ? 'DeepSeek V4.1 Flash' : item.displayName}</strong>
+                  <span>{item.available ? item.name === 'AUTO' ? 'Escolha automática' : 'Disponível para análise' : 'Indisponível'}</span>
+                </button>
+              ))}
+            </div>
+            {providers.length === 0 && <p className="alert" role="alert">Nenhum provedor está disponível no momento.</p>}
+            {error && <p className="alert" role="alert">{error}</p>}
+            <div className="form-actions">
+              <Button
+                type="button"
+                onClick={submit}
+                loading={submitting}
+                disabled={!materialReady || !providers.some((item) => item.name === provider && item.available)}
+              >
+                Iniciar análise
+              </Button>
+            </div>
+          </Card>
+        )}
+      </div>
+    </AppShell>
+  )
 }

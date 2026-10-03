@@ -51,6 +51,32 @@ export function ProcessingPage() {
   }, [id, navigate])
 
   const status = analysis?.status || 'PENDING'
-  if (status === 'FAILED') return <main className="processing-page"><Card className="processing-card page-enter"><h1>Não foi possível concluir</h1><Badge variant="failed">FAILED</Badge><p role="alert">{statusMessage(analysis)}</p><div className="form-actions"><Link to={`/projects/${analysis!.projectId}`}>Voltar ao projeto</Link><Link to="/history">Ir ao histórico</Link></div></Card></main>
-  return <main className="processing-page"><Card className="processing-card page-enter"><Spinner size="lg" label="Análise em andamento" /><h1>Processando análise</h1><Badge variant={statusVariant(status)}>{status}</Badge><p>{error || statusMessage(analysis)}</p>{error && <p className="alert" role="alert">{error}</p>}</Card></main>
+
+  if (status === 'FAILED') {
+    return (
+      <main className="processing-page">
+        <Card className="processing-card page-enter">
+          <h1>Não foi possível concluir</h1>
+          <Badge variant="failed">FAILED</Badge>
+          <p role="alert">{statusMessage(analysis)}</p>
+          <div className="form-actions">
+            <Link to={`/projects/${analysis!.projectId}`}>Voltar ao projeto</Link>
+            <Link to="/history">Ir ao histórico</Link>
+          </div>
+        </Card>
+      </main>
+    )
+  }
+
+  return (
+    <main className="processing-page">
+      <Card className="processing-card page-enter">
+        <Spinner size="lg" label="Análise em andamento" />
+        <h1>Processando análise</h1>
+        <Badge variant={statusVariant(status)}>{status}</Badge>
+        <p>{error || statusMessage(analysis)}</p>
+        {error && <p className="alert" role="alert">{error}</p>}
+      </Card>
+    </main>
+  )
 }
