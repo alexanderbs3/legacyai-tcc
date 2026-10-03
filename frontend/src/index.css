@@ -230,9 +230,10 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 .project-card { display: grid; min-height: 180px; gap: 18px; }
 .project-card:hover { border-color: var(--accent-border); }
 .project-card-header, .project-meta, .section-heading, .file-row, .analysis-row, .issue-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.project-card h2 { font-size: 1.08rem; }
+.project-card-header { align-items: flex-start; flex-wrap: wrap; }
+.project-card h2 { min-width: 0; overflow-wrap: break-word; word-break: break-word; font-size: 1.08rem; }
 .project-meta { margin-top: auto; color: var(--text); font-size: 0.82rem; }
-.project-count { color: var(--accent); font-weight: 700; }
+.project-count { flex-shrink: 0; white-space: nowrap; color: var(--accent); font-weight: 700; }
 .empty-state { display: grid; min-height: 260px; place-content: center; gap: 9px; padding: 30px; border: 1px dashed var(--border); border-radius: 8px; text-align: center; }
 .empty-state-icon { color: var(--accent); font-size: 2.2rem; line-height: 1; }
 .empty-state p { max-width: 360px; font-size: 0.9rem; }
@@ -246,6 +247,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-c
 .progress-track { overflow: hidden; height: 7px; border-radius: 999px; background: var(--border); }
 .progress-value { height: 100%; border-radius: inherit; background: var(--accent); transition: width 200ms ease; }
 .form-actions { display: flex; justify-content: flex-end; }
+.confirm-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 
 .detail-sections, .report-sections { display: grid; gap: 18px; }
 .section-card { display: grid; gap: 16px; }
