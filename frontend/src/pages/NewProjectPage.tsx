@@ -55,7 +55,10 @@ export function NewProjectPage() {
       }
       navigate(`/projects/${data.id}`)
     } catch (cause) {
-      setError(projectCreated ? uploadErrorMessage(cause, 'Não foi possível enviar o arquivo. Tente novamente no projeto.') : 'Não foi possível criar o projeto.')
+      const limitMessage = `Arquivo selecionado excede o limite de tamanho permitido. ` +
+      `Remova pastas geradas (node_modules, target, dist, build, .git) antes de compactar, ` +
+      `ou divida o projeto em mais de um ZIP e envie cada parte separadamente. Tente novamente no projeto.`
+      setError(projectCreated ? uploadErrorMessage(cause, limitMessage) : 'Não foi possível criar o projeto.')
     } finally {
       setLoading(false)
     }

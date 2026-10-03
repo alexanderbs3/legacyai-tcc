@@ -51,7 +51,10 @@ export function ProjectDetailPage() {
       setFile(undefined)
       formElement.reset()
     } catch (cause) {
-      setUploadError(uploadErrorMessage(cause, 'Não foi possível enviar o arquivo. Tente novamente.'))
+      const limitMessage = `Arquivo selecionado excede o limite de tamanho permitido. ` +
+      `Remova pastas geradas (node_modules, target, dist, build, .git) antes de compactar, ` +
+      `ou divida o projeto em mais de um ZIP e envie cada parte separadamente.`
+      setUploadError(uploadErrorMessage(cause, limitMessage))
     } finally {
       uploadInFlight.current = false
       setUploading(false)
