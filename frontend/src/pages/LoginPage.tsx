@@ -1,53 +1,56 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Brand } from '../components/Brand'
-import { Button } from '../components/Button'
-import { Card } from '../components/Card'
-import { Input } from '../components/Input'
-import { api, setToken } from '../services/api'
-import { authErrorMessage } from '../services/authErrors'
-import type { AuthResponse, LoginRequest } from '../types/auth'
-import { isValidEmail } from '../utils/validation'
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Brand } from '../components/Brand';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { Input } from '../components/Input';
+import { api, setToken } from '../services/api';
+import { authErrorMessage } from '../services/authErrors';
+import type { AuthResponse, LoginRequest } from '../types/auth';
+import { isValidEmail } from '../utils/validation';
 
 type FieldErrors = {
-  email?: string
-  password?: string
-}
+  email?: string;
+  password?: string;
+};
 
 function validate(email: string, password: string): FieldErrors {
-  const errors: FieldErrors = {}
-  if (!email.trim()) errors.email = 'Informe seu e-mail.'
-  else if (!isValidEmail(email)) errors.email = 'Informe um e-mail válido.'
-  if (!password) errors.password = 'Informe sua senha.'
-  return errors
+  const errors: FieldErrors = {};
+  if (!email.trim()) errors.email = 'Informe seu e-mail.';
+  else if (!isValidEmail(email)) errors.email = 'Informe um e-mail válido.';
+  if (!password) errors.password = 'Informe sua senha.';
+  return errors;
 }
 
 export function LoginPage() {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
+    event.preventDefault();
+    setError('');
 
-    const errors = validate(email, password)
-    setFieldErrors(errors)
-    if (errors.email || errors.password) return
+    const errors = validate(email, password);
+    setFieldErrors(errors);
+    if (errors.email || errors.password) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const { data } = await api.post<AuthResponse, { data: AuthResponse }, LoginRequest>('/auth/login', { email, password })
-      setToken(data.token)
-      navigate('/dashboard')
+      const { data } = await api.post<AuthResponse, { data: AuthResponse }, LoginRequest>(
+        '/auth/login',
+        { email, password },
+      );
+      setToken(data.token);
+      navigate('/dashboard');
     } catch (cause) {
-      setError(authErrorMessage(cause, 'Não foi possível autenticar.'))
+      setError(authErrorMessage(cause, 'Não foi possível autenticar.'));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -67,8 +70,9 @@ export function LoginPage() {
             placeholder="voce@empresa.com"
             value={email}
             onChange={(event) => {
-              setEmail(event.target.value)
-              if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: undefined }))
+              setEmail(event.target.value);
+              if (fieldErrors.email)
+                setFieldErrors((current) => ({ ...current, email: undefined }));
             }}
             error={fieldErrors.email}
           />
@@ -79,21 +83,28 @@ export function LoginPage() {
             placeholder="Sua senha"
             value={password}
             onChange={(event) => {
-              setPassword(event.target.value)
-              if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }))
+              setPassword(event.target.value);
+              if (fieldErrors.password)
+                setFieldErrors((current) => ({ ...current, password: undefined }));
             }}
             error={fieldErrors.password}
           />
 
-          <Button type="submit" loading={loading}>Entrar</Button>
+          <Button type="submit" loading={loading}>
+            Entrar
+          </Button>
         </form>
 
-        {error && <p className="alert" role="alert">{error}</p>}
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
 
         <p className="auth-footer">
           Ainda não tem uma conta? <Link to="/register">Criar conta</Link>
         </p>
       </Card>
     </main>
-  )
+  );
 }

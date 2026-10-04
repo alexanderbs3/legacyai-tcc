@@ -1,41 +1,44 @@
 package com.legacyai.security;
 
-import com.legacyai.entity.User;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import javax.crypto.SecretKey;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.legacyai.entity.User;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+
 @Service
 public class JwtService {
     private final String secret;
+
     private final long expirationMs;
 
     public JwtService(
-            @Value("${security.jwt.secret}") String secret,
-            @Value("${security.jwt.expiration-ms:3600000}") long expirationMs
-    ) {
+        @Value("${security.jwt.secret}") String secret,
+        @Value("${security.jwt.expiration-ms:3600000}") long expirationMs) {
         this.secret = secret;
         this.expirationMs = expirationMs;
     }
 
     public String generateToken(User user) {
         Instant now = Instant.now();
-        return Jwts.builder()
-                .subject(user.getId().toString())
-                .claim("email", user.getEmail())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationMs)))
-                .signWith(signingKey(), Jwts.SIG.HS256)
-                .compact();
+        return Jwts
+            .builder()
+            .subject(user.getId().toString())
+            .claim("email", user.getEmail())
+            .issuedAt(Date.from(now))
+            .expiration(Date.from(now.plusMillis(expirationMs)))
+            .signWith(signingKey(), Jwts.SIG.HS256)
+            .compact();
     }
 
     public UUID extractUserId(String token) {
@@ -47,11 +50,7 @@ public class JwtService {
     }
 
     private Claims parseClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return Jwts.parser().verifyWith(signingKey()).build().parseSignedClaims(token).getPayload();
     }
 
     private SecretKey signingKey() {

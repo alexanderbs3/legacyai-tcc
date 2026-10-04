@@ -39,7 +39,12 @@ public class UploadedFile {
     protected UploadedFile() {
     }
 
-    public UploadedFile(UUID projectId, String fileName, String fileType, long fileSize, String temporaryPath) {
+    public UploadedFile(
+        UUID projectId,
+        String fileName,
+        String fileType,
+        long fileSize,
+        String temporaryPath) {
         this.projectId = projectId;
         this.fileName = fileName;
         this.fileType = fileType;
@@ -52,11 +57,31 @@ public class UploadedFile {
         uploadedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getProjectId() { return projectId; }
-    public String getFileName() { return fileName; }
-    public String getFileType() { return fileType; }
-    public long getFileSize() { return fileSize; }
-    public String getTemporaryPath() { return temporaryPath; }
-    public Instant getUploadedAt() { return uploadedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getProjectId() {
+        return projectId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public String getFileType() {
+        return fileType;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public String getTemporaryPath() {
+        return temporaryPath;
+    }
+
+    public Instant getUploadedAt() {
+        return uploadedAt;
+    }
 }

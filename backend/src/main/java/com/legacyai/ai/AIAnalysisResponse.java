@@ -3,13 +3,13 @@ package com.legacyai.ai;
 import java.util.List;
 
 public record AIAnalysisResponse(
-        String summary,
-        List<String> technologies,
-        String architecture,
-        List<ReportItem> problems,
-        List<ReportItem> securityRisks,
-        List<ReportItem> recommendations,
-        List<String> modernization) {
+    String summary,
+    List<String> technologies,
+    String architecture,
+    List<ReportItem> problems,
+    List<ReportItem> securityRisks,
+    List<ReportItem> recommendations,
+    List<String> modernization) {
     public AIAnalysisResponse {
         summary = summary == null ? "" : summary;
         technologies = technologies == null ? List.of() : List.copyOf(technologies);

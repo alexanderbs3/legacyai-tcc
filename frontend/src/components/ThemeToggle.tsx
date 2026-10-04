@@ -1,27 +1,27 @@
-import { useEffect, useState } from 'react'
-import { Icon } from './Icon'
+import { useEffect, useState } from 'react';
+import { Icon } from './Icon';
 
-const STORAGE_KEY = 'legacyai.theme'
-type Theme = 'light' | 'dark'
+const STORAGE_KEY = 'legacyai.theme';
+type Theme = 'light' | 'dark';
 
 function systemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function initialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  return stored === 'light' || stored === 'dark' ? stored : systemTheme()
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored === 'light' || stored === 'dark' ? stored : systemTheme();
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(initialTheme)
+  const [theme, setTheme] = useState<Theme>(initialTheme);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem(STORAGE_KEY, theme)
-  }, [theme])
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(STORAGE_KEY, theme);
+  }, [theme]);
 
-  const nextTheme = theme === 'dark' ? 'light' : 'dark'
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
 
   return (
     <button
@@ -33,5 +33,5 @@ export function ThemeToggle() {
       <Icon name={theme === 'dark' ? 'brightness_7' : 'brightness_4'} />
       <span>Modo {nextTheme === 'dark' ? 'escuro' : 'claro'}</span>
     </button>
-  )
+  );
 }

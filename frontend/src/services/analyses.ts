@@ -1,5 +1,5 @@
-import { api } from './api'
+import { api } from './api';
 
 export async function deleteAnalysis(id: string): Promise<void> {
-  await api.delete(`/analyses/${id}`)
+  await api.delete(`/analyses/${id}`);
 }

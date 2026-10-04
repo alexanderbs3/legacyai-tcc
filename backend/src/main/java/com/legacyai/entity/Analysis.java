@@ -11,17 +11,23 @@ public class Analysis {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
     @Column(name = "project_id", nullable = false)
     private UUID projectId;
+
     @Column(name = "provider", nullable = false)
     private String provider;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private AnalysisStatus status;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
     @Column(name = "completed_at")
     private Instant completedAt;
+
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 

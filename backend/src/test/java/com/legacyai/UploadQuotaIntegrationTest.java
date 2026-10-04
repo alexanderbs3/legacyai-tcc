@@ -1,6 +1,13 @@
 package com.legacyai;
 
-import com.jayway.jsonpath.JsonPath;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,13 +20,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.nio.file.Path;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import com.jayway.jsonpath.JsonPath;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -51,9 +52,11 @@ class UploadQuotaIntegrationTest {
 
         upload(firstProject, token, "123456").andExpect(status().isCreated());
         upload(secondProject, token, "12345")
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("INVALID_FILE"))
-                .andExpect(jsonPath("$.message").value("O total de arquivos do usuário excede o limite permitido."));
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("INVALID_FILE"))
+            .andExpect(
+                jsonPath("$.message")
+                    .value("O total de arquivos do usuário excede o limite permitido."));
     }
 
     @Test
@@ -65,7 +68,8 @@ class UploadQuotaIntegrationTest {
         CountDownLatch start = new CountDownLatch(1);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
-            List<Future<Integer>> results = List.of(
+            List<Future<Integer>> results = List
+                .of(
                     executor.submit(() -> concurrentUpload(firstProject, token, ready, start)),
                     executor.submit(() -> concurrentUpload(secondProject, token, ready, start)));
             ready.await();
@@ -77,42 +81,63 @@ class UploadQuotaIntegrationTest {
         }
     }
 
-    private int concurrentUpload(UUID projectId, String token, CountDownLatch ready, CountDownLatch start) throws Exception {
+    private int concurrentUpload(
+        UUID projectId,
+        String token,
+        CountDownLatch ready,
+        CountDownLatch start)
+        throws Exception {
         ready.countDown();
         start.await();
         return upload(projectId, token, "123456").andReturn().getResponse().getStatus();
     }
 
-    private org.springframework.test.web.servlet.ResultActions upload(UUID projectId, String token, String content) throws Exception {
-        return mockMvc.perform(multipart("/api/projects/" + projectId + "/files")
-                .file(new MockMultipartFile("file", "README.md", "text/markdown", content.getBytes()))
-                .header("Authorization", "Bearer " + token));
+    private org.springframework.test.web.servlet.ResultActions upload(
+        UUID projectId,
+        String token,
+        String content)
+        throws Exception {
+        return mockMvc
+            .perform(
+                multipart("/api/projects/" + projectId + "/files")
+                    .file(
+                        new MockMultipartFile(
+                            "file",
+                            "README.md",
+                            "text/markdown",
+                            content.getBytes()))
+                    .header("Authorization", "Bearer " + token));
     }
 
     private UUID createProject(String token, String name) throws Exception {
-        MvcResult project = mockMvc.perform(post("/api/projects")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"" + name + "\",\"description\":\"\"}"))
-                .andExpect(status().isCreated())
-                .andReturn();
+        MvcResult project = mockMvc
+            .perform(
+                post("/api/projects")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"name\":\"" + name + "\",\"description\":\"\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
         return UUID.fromString(JsonPath.read(project.getResponse().getContentAsString(), "$.id"));
     }
 
     private String tokenFor(String email) throws Exception {
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Quota User\",\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
-                .andExpect(status().isCreated());
-        MvcResult login = mockMvc.perform(post("/api/auth/login")
-                        .with(request -> {
-                            request.setRemoteAddr("198.51.100." + (Math.floorMod(email.hashCode(), 240) + 10));
-                            return request;
-                        })
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
-                .andExpect(status().isOk())
-                .andReturn();
+        mockMvc
+            .perform(
+                post("/api/auth/register")
+                    .contentType(APPLICATION_JSON)
+                    .content(
+                        "{\"name\":\"Quota User\",\"email\":\"" + email
+                            + "\",\"password\":\"secure-password\"}"))
+            .andExpect(status().isCreated());
+        MvcResult login = mockMvc.perform(post("/api/auth/login").with(request -> {
+            request.setRemoteAddr("198.51.100." + (Math.floorMod(email.hashCode(), 240) + 10));
+            return request;
+        })
+            .contentType(APPLICATION_JSON)
+            .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
+            .andExpect(status().isOk())
+            .andReturn();
         return JsonPath.read(login.getResponse().getContentAsString(), "$.token");
     }
 }

@@ -1,9 +1,9 @@
-import { Icon } from './Icon'
+import { Icon } from './Icon';
 
 type EmptyStateProps = {
-  title: string
-  subtitle: string
-}
+  title: string;
+  subtitle: string;
+};
 
 export function EmptyState({ title, subtitle }: EmptyStateProps) {
   return (
@@ -12,5 +12,5 @@ export function EmptyState({ title, subtitle }: EmptyStateProps) {
       <h2>{title}</h2>
       <p>{subtitle}</p>
     </div>
-  )
+  );
 }

@@ -1,11 +1,5 @@
 package com.legacyai.file;
 
-import com.legacyai.exception.InvalidFileException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import org.springframework.util.unit.DataSize;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,23 +15,41 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.util.unit.DataSize;
+
+import com.legacyai.exception.InvalidFileException;
+
 @Component
 public class ZipProcessor {
-    private static final Set<String> IGNORED = Set.of(
-            ".git", "node_modules", "target", "build", "dist", ".idea", ".vscode");
+    private static final Set<String> IGNORED = Set
+        .of(
+            ".git",
+            "node_modules",
+            "target",
+            "build",
+            "dist",
+            ".idea",
+            ".vscode");
+
     private static final int DEFAULT_MAX_ENTRIES = 1_000;
+
     private static final long DEFAULT_MAX_UNCOMPRESSED_BYTES = 200L * 1024 * 1024;
+
     private static final String TOO_MANY_ENTRIES = "O arquivo ZIP excede o limite de entradas permitidas.";
+
     private static final String TOO_MUCH_CONTENT = "O conteúdo descompactado do ZIP excede o limite permitido.";
 
     private final int maxEntries;
+
     private final long maxUncompressedBytes;
 
     @Autowired
     public ZipProcessor(
-            @Value("${zip.max-entries:1000}") int maxEntries,
-            @Value("${zip.max-uncompressed-bytes:200MB}") DataSize maxUncompressedBytes
-    ) {
+        @Value("${zip.max-entries:1000}") int maxEntries,
+        @Value("${zip.max-uncompressed-bytes:200MB}") DataSize maxUncompressedBytes) {
         this(maxEntries, maxUncompressedBytes.toBytes());
     }
 
@@ -61,13 +73,14 @@ public class ZipProcessor {
         return new ExtractionBudget(maxUncompressedBytes);
     }
 
-    public List<Path> extractSafely(Path zip, Path directory, ExtractionBudget budget) throws IOException {
+    public List<Path> extractSafely(Path zip, Path directory, ExtractionBudget budget)
+        throws IOException {
         List<Path> result = new ArrayList<>();
         Path root = directory.toAbsolutePath().normalize();
         int entries = 0;
 
         try (ZipInputStream in = new ZipInputStream(Files.newInputStream(zip))) {
-            for (ZipEntry entry; (entry = in.getNextEntry()) != null; ) {
+            for (ZipEntry entry; (entry = in.getNextEntry()) != null;) {
                 if (++entries > maxEntries) {
                     throw new InvalidFileException(TOO_MANY_ENTRIES);
                 }
@@ -103,15 +116,16 @@ public class ZipProcessor {
 
     private void discardWithinLimit(InputStream input, ExtractionBudget budget) throws IOException {
         byte[] buffer = new byte[8_192];
-        for (int read; (read = input.read(buffer)) != -1; ) {
+        for (int read; (read = input.read(buffer)) != -1;) {
             budget.consume(read);
         }
     }
 
-    private void copyWithinLimit(InputStream input, Path output, ExtractionBudget budget) throws IOException {
+    private void copyWithinLimit(InputStream input, Path output, ExtractionBudget budget)
+        throws IOException {
         byte[] buffer = new byte[8_192];
         try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(output))) {
-            for (int read; (read = input.read(buffer)) != -1; ) {
+            for (int read; (read = input.read(buffer)) != -1;) {
                 budget.consume(read);
                 out.write(buffer, 0, read);
             }
@@ -120,6 +134,7 @@ public class ZipProcessor {
 
     public static final class ExtractionBudget {
         private final long limit;
+
         private long consumed;
 
         private ExtractionBudget(long limit) {

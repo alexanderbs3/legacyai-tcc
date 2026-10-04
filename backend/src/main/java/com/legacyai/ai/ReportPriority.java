@@ -7,7 +7,10 @@ public enum ReportPriority {
 
     @JsonCreator
     public static ReportPriority from(String value) {
-        try { return value == null ? MEDIUM : valueOf(value.trim().toUpperCase()); }
-        catch (IllegalArgumentException exception) { return MEDIUM; }
+        try {
+            return value == null ? MEDIUM : valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            return MEDIUM;
+        }
     }
 }

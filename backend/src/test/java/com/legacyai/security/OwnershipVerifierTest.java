@@ -1,11 +1,12 @@
 package com.legacyai.security;
 
-import com.legacyai.exception.ApiExceptionHandler;
-import com.legacyai.exception.ForbiddenException;
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
-import java.util.UUID;
+import com.legacyai.exception.ApiExceptionHandler;
+import com.legacyai.exception.ForbiddenException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -16,9 +17,12 @@ class OwnershipVerifierTest {
 
     @Test
     void returns403WhenAuthenticatedUserDoesNotOwnResource() {
-        ForbiddenException exception = assertThrows(ForbiddenException.class, () ->
-                ownershipVerifier.verify(UUID.randomUUID(), UUID.randomUUID()));
+        ForbiddenException exception = assertThrows(
+            ForbiddenException.class,
+            () -> ownershipVerifier.verify(UUID.randomUUID(), UUID.randomUUID()));
 
-        assertEquals(HttpStatus.FORBIDDEN, new ApiExceptionHandler().handleForbidden(exception).getStatusCode());
+        assertEquals(
+            HttpStatus.FORBIDDEN,
+            new ApiExceptionHandler().handleForbidden(exception).getStatusCode());
     }
 }

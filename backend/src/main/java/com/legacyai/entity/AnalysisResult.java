@@ -43,7 +43,15 @@ public class AnalysisResult {
     protected AnalysisResult() {
     }
 
-    public AnalysisResult(UUID id, String summary, String technologies, String architecture, String problems, String securityRisks, String recommendations, String modernization) {
+    public AnalysisResult(
+        UUID id,
+        String summary,
+        String technologies,
+        String architecture,
+        String problems,
+        String securityRisks,
+        String recommendations,
+        String modernization) {
         analysisId = id;
         this.summary = summary;
         this.technologies = technologies;
@@ -54,11 +62,31 @@ public class AnalysisResult {
         this.modernization = modernization;
     }
 
-    public String getSummary() { return summary; }
-    public String getTechnologies() { return technologies; }
-    public String getArchitecture() { return architecture; }
-    public String getProblems() { return problems; }
-    public String getSecurityRisks() { return securityRisks; }
-    public String getRecommendations() { return recommendations; }
-    public String getModernization() { return modernization; }
+    public String getSummary() {
+        return summary;
+    }
+
+    public String getTechnologies() {
+        return technologies;
+    }
+
+    public String getArchitecture() {
+        return architecture;
+    }
+
+    public String getProblems() {
+        return problems;
+    }
+
+    public String getSecurityRisks() {
+        return securityRisks;
+    }
+
+    public String getRecommendations() {
+        return recommendations;
+    }
+
+    public String getModernization() {
+        return modernization;
+    }
 }

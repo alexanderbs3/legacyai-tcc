@@ -1,1 +1,12 @@
-package com.legacyai.ai.openai; import org.junit.jupiter.api.Test; import static org.junit.jupiter.api.Assertions.assertFalse; class OpenAIProviderTest{@Test void unavailableWithoutApiKey(){assertFalse(new OpenAIProvider("", "test").isAvailable());}}
+package com.legacyai.ai.openai;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+class OpenAIProviderTest {
+    @Test
+    void unavailableWithoutApiKey() {
+        assertFalse(new OpenAIProvider("", "test").isAvailable());
+    }
+}

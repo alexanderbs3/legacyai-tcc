@@ -1,1 +1,4 @@
-package com.legacyai.dto; public record CreateAnalysisRequest(String provider) {}
+package com.legacyai.dto;
+
+public record CreateAnalysisRequest(String provider) {
+}

@@ -1,5 +1,7 @@
 package com.legacyai.exception;
 
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -7,23 +9,24 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-import java.util.Map;
-
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException exception) {
+    public ResponseEntity<Map<String, String>> handleValidation(
+        MethodArgumentNotValidException exception) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Requisição inválida");
     }
 
     @ExceptionHandler(DuplicateEmailException.class)
-    public ResponseEntity<Map<String, String>> handleDuplicateEmail(DuplicateEmailException exception) {
+    public ResponseEntity<Map<String, String>> handleDuplicateEmail(
+        DuplicateEmailException exception) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", exception.getMessage());
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidCredentials(InvalidCredentialsException exception) {
+    public ResponseEntity<Map<String, String>> handleInvalidCredentials(
+        InvalidCredentialsException exception) {
         return error(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", exception.getMessage());
     }
 
@@ -43,16 +46,21 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
+    public ResponseEntity<Map<String, String>> handleMaxUploadSize(
+        MaxUploadSizeExceededException exception) {
         return error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "Arquivo excede o limite de 70 MB.");
     }
 
     @ExceptionHandler(StorageCleanupException.class)
-    public ResponseEntity<Map<String, String>> handleStorageCleanup(StorageCleanupException exception) {
+    public ResponseEntity<Map<String, String>> handleStorageCleanup(
+        StorageCleanupException exception) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE_ERROR", exception.getMessage());
     }
 
-    private ResponseEntity<Map<String, String>> error(HttpStatus status, String error, String message) {
+    private ResponseEntity<Map<String, String>> error(
+        HttpStatus status,
+        String error,
+        String message) {
         return ResponseEntity.status(status).body(Map.of("error", error, "message", message));
     }
 }

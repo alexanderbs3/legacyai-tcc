@@ -1,12 +1,5 @@
 package com.legacyai.file;
 
-import com.legacyai.analysis.ProjectContextBuilder;
-import com.legacyai.entity.Project;
-import com.legacyai.entity.UploadedFile;
-import com.legacyai.exception.InvalidFileException;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,12 +9,21 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.legacyai.analysis.ProjectContextBuilder;
+import com.legacyai.entity.Project;
+import com.legacyai.entity.UploadedFile;
+import com.legacyai.exception.InvalidFileException;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectAnalyzerTest {
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
 
     @Test
     void buildsReadableContextForJavaSpringProject() throws Exception {
@@ -39,22 +41,32 @@ class ProjectAnalyzerTest {
     @Test
     void rejectsZipSlipEntry() throws Exception {
         Path zip = tempDir.resolve("malicious.zip");
-        try (OutputStream out = Files.newOutputStream(zip); ZipOutputStream zos = new ZipOutputStream(out)) {
+        try (OutputStream out = Files.newOutputStream(zip);
+            ZipOutputStream zos = new ZipOutputStream(out)) {
             zos.putNextEntry(new ZipEntry("../../etc/passwd"));
             zos.write("blocked".getBytes());
             zos.closeEntry();
         }
-        assertThrows(InvalidFileException.class, () -> new ZipProcessor().extractSafely(zip, tempDir.resolve("output")));
+        assertThrows(
+            InvalidFileException.class,
+            () -> new ZipProcessor().extractSafely(zip, tempDir.resolve("output")));
     }
 
     @Test
     void rejectsDirectFileNameThatEscapesProcessingDirectory() throws Exception {
         Path source = tempDir.resolve("source.txt");
         Files.writeString(source, "legacy source");
-        UploadedFile file = new UploadedFile(UUID.randomUUID(), "../../legacyai-path-traversal.txt", "text/plain", 13, source.toString());
+        UploadedFile file = new UploadedFile(
+            UUID.randomUUID(),
+            "../../legacyai-path-traversal.txt",
+            "text/plain",
+            13,
+            source.toString());
 
-        assertThrows(SecurityException.class, () -> new FileProcessor().processFiles(
-                new Project("Demo", "", UUID.randomUUID()), List.of(file)));
+        assertThrows(
+            SecurityException.class,
+            () -> new FileProcessor()
+                .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(file)));
     }
 
     @Test
@@ -66,14 +78,18 @@ class ProjectAnalyzerTest {
             zip.closeEntry();
             zip.putNextEntry(new ZipEntry("docs/report.pdf"));
             zip.write("%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII));
-            zip.write(new byte[] {(byte) 0x80, (byte) 0xFF});
+            zip.write(new byte[]{(byte) 0x80, (byte) 0xFF});
             zip.closeEntry();
         }
 
-        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "project.zip", "application/zip",
-                Files.size(archive), archive.toString());
-        String context = new FileProcessor().processFiles(
-                new Project("Demo", "", UUID.randomUUID()), List.of(upload));
+        UploadedFile upload = new UploadedFile(
+            UUID.randomUUID(),
+            "project.zip",
+            "application/zip",
+            Files.size(archive),
+            archive.toString());
+        String context = new FileProcessor()
+            .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload));
 
         assertTrue(context.contains("// análise técnica"));
         assertFalse(context.contains("report.pdf"));
@@ -85,14 +101,20 @@ class ProjectAnalyzerTest {
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
             zip.putNextEntry(new ZipEntry("interview.pdf"));
             zip.write("%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII));
-            zip.write(new byte[] {(byte) 0x80});
+            zip.write(new byte[]{(byte) 0x80});
             zip.closeEntry();
         }
-        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "pdf-only.zip", "application/zip",
-                Files.size(archive), archive.toString());
+        UploadedFile upload = new UploadedFile(
+            UUID.randomUUID(),
+            "pdf-only.zip",
+            "application/zip",
+            Files.size(archive),
+            archive.toString());
 
-        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor().processFiles(
-                new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new FileProcessor()
+                .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
         assertTrue(error.getMessage().contains("texto UTF-8"));
     }
 
@@ -100,11 +122,24 @@ class ProjectAnalyzerTest {
     void appliesZipUncompressedByteLimitAcrossAllArchivesInOneProcessingRun() throws Exception {
         Path firstArchive = zipWithText("first.zip", "README.md", "123456");
         Path secondArchive = zipWithText("second.zip", "src/Main.java", "abcdef");
-        List<UploadedFile> uploads = List.of(
-                new UploadedFile(UUID.randomUUID(), "first.zip", "application/zip", Files.size(firstArchive), firstArchive.toString()),
-                new UploadedFile(UUID.randomUUID(), "second.zip", "application/zip", Files.size(secondArchive), secondArchive.toString()));
+        List<UploadedFile> uploads = List
+            .of(
+                new UploadedFile(
+                    UUID.randomUUID(),
+                    "first.zip",
+                    "application/zip",
+                    Files.size(firstArchive),
+                    firstArchive.toString()),
+                new UploadedFile(
+                    UUID.randomUUID(),
+                    "second.zip",
+                    "application/zip",
+                    Files.size(secondArchive),
+                    secondArchive.toString()));
 
-        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor(new ZipProcessor(10, 10))
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new FileProcessor(new ZipProcessor(10, 10))
                 .processFiles(new Project("Demo", "", UUID.randomUUID()), uploads));
 
         assertTrue(error.getMessage().contains("conteúdo descompactado"));
@@ -113,16 +148,23 @@ class ProjectAnalyzerTest {
     @Test
     void rejectsNonUtf8DirectTextWithUsefulMessage() throws Exception {
         Path source = tempDir.resolve("invalid.txt");
-        Files.write(source, new byte[] {(byte) 0x80});
-        UploadedFile upload = new UploadedFile(UUID.randomUUID(), "invalid.txt", "text/plain",
-                Files.size(source), source.toString());
+        Files.write(source, new byte[]{(byte) 0x80});
+        UploadedFile upload = new UploadedFile(
+            UUID.randomUUID(),
+            "invalid.txt",
+            "text/plain",
+            Files.size(source),
+            source.toString());
 
-        InvalidFileException error = assertThrows(InvalidFileException.class, () -> new FileProcessor().processFiles(
-                new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new FileProcessor()
+                .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
         assertTrue(error.getMessage().contains("UTF-8"));
     }
 
-    private Path zipWithText(String archiveName, String entryName, String content) throws Exception {
+    private Path zipWithText(String archiveName, String entryName, String content)
+        throws Exception {
         Path archive = tempDir.resolve(archiveName);
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
             zip.putNextEntry(new ZipEntry(entryName));

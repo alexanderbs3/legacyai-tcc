@@ -1,9 +1,9 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom';
 
 type BrandProps = {
-  to: string
-  className?: string
-}
+  to: string;
+  className?: string;
+};
 
 export function Brand({ to, className = '' }: BrandProps) {
   return (
@@ -11,5 +11,5 @@ export function Brand({ to, className = '' }: BrandProps) {
       <img className="brand-logo brand-logo-light" src="/legacyai-logo.svg" alt="LegacyAI" />
       <img className="brand-logo brand-logo-dark" src="/legacyai-logo-dark.svg" alt="LegacyAI" />
     </Link>
-  )
+  );
 }

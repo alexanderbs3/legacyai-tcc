@@ -1,8 +1,9 @@
 package com.legacyai;
 
-import com.jayway.jsonpath.JsonPath;
-import com.legacyai.entity.UploadedFile;
-import com.legacyai.repository.UploadedFileRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,9 +17,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.UUID;
+import com.jayway.jsonpath.JsonPath;
+import com.legacyai.entity.UploadedFile;
+import com.legacyai.repository.UploadedFileRepository;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,12 +53,23 @@ class UploadPersistenceFailureIntegrationTest {
         String token = tokenFor("persistence-failure-" + UUID.randomUUID() + "@example.com");
         UUID projectId = createProject(token);
         when(uploadedFiles.totalFileSizeByUserId(any())).thenReturn(0L);
-        when(uploadedFiles.save(any(UploadedFile.class))).thenThrow(new IllegalStateException("database unavailable"));
-        when(uploadedFiles.saveAndFlush(any(UploadedFile.class))).thenThrow(new IllegalStateException("database unavailable"));
+        when(uploadedFiles.save(any(UploadedFile.class)))
+            .thenThrow(new IllegalStateException("database unavailable"));
+        when(uploadedFiles.saveAndFlush(any(UploadedFile.class)))
+            .thenThrow(new IllegalStateException("database unavailable"));
 
-        assertThrows(Exception.class, () -> mockMvc.perform(multipart("/api/projects/" + projectId + "/files")
-                .file(new MockMultipartFile("file", "README.md", "text/markdown", "# test".getBytes()))
-                .header("Authorization", "Bearer " + token)));
+        assertThrows(
+            Exception.class,
+            () -> mockMvc
+                .perform(
+                    multipart("/api/projects/" + projectId + "/files")
+                        .file(
+                            new MockMultipartFile(
+                                "file",
+                                "README.md",
+                                "text/markdown",
+                                "# test".getBytes()))
+                        .header("Authorization", "Bearer " + token)));
 
         try (var stored = Files.list(uploadDirectory)) {
             assertTrue(stored.findAny().isEmpty());
@@ -65,29 +77,34 @@ class UploadPersistenceFailureIntegrationTest {
     }
 
     private UUID createProject(String token) throws Exception {
-        MvcResult project = mockMvc.perform(post("/api/projects")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Persistence\",\"description\":\"\"}"))
-                .andExpect(status().isCreated())
-                .andReturn();
+        MvcResult project = mockMvc
+            .perform(
+                post("/api/projects")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"name\":\"Persistence\",\"description\":\"\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
         return UUID.fromString(JsonPath.read(project.getResponse().getContentAsString(), "$.id"));
     }
 
     private String tokenFor(String email) throws Exception {
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Persistence User\",\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
-                .andExpect(status().isCreated());
-        MvcResult login = mockMvc.perform(post("/api/auth/login")
-                        .with(request -> {
-                            request.setRemoteAddr("203.0.113." + (Math.floorMod(email.hashCode(), 240) + 10));
-                            return request;
-                        })
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
-                .andExpect(status().isOk())
-                .andReturn();
+        mockMvc
+            .perform(
+                post("/api/auth/register")
+                    .contentType(APPLICATION_JSON)
+                    .content(
+                        "{\"name\":\"Persistence User\",\"email\":\"" + email
+                            + "\",\"password\":\"secure-password\"}"))
+            .andExpect(status().isCreated());
+        MvcResult login = mockMvc.perform(post("/api/auth/login").with(request -> {
+            request.setRemoteAddr("203.0.113." + (Math.floorMod(email.hashCode(), 240) + 10));
+            return request;
+        })
+            .contentType(APPLICATION_JSON)
+            .content("{\"email\":\"" + email + "\",\"password\":\"secure-password\"}"))
+            .andExpect(status().isOk())
+            .andReturn();
         return JsonPath.read(login.getResponse().getContentAsString(), "$.token");
     }
 }

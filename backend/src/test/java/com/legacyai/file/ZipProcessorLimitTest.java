@@ -1,9 +1,5 @@
 package com.legacyai.file;
 
-import com.legacyai.exception.InvalidFileException;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,6 +7,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.legacyai.exception.InvalidFileException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,55 +24,69 @@ class ZipProcessorLimitTest {
 
     @Test
     void extractsNormalZipWithinConfiguredLimits() throws Exception {
-        Path archive = createZip(List.of(
-                new Entry("src/Main.java", "class Main {}"),
-                new Entry("README.md", "# Demo")));
+        Path archive = createZip(
+            List.of(new Entry("src/Main.java", "class Main {}"), new Entry("README.md", "# Demo")));
 
         List<Path> extracted = new ZipProcessor(10, 1_024)
-                .extractSafely(archive, tempDir.resolve("output"));
+            .extractSafely(archive, tempDir.resolve("output"));
 
         assertEquals(2, extracted.size());
-        assertTrue(Files.readString(tempDir.resolve("output/src/Main.java")).contains("class Main"));
+        assertTrue(
+            Files.readString(tempDir.resolve("output/src/Main.java")).contains("class Main"));
     }
 
     @Test
     void rejectsZipWithMoreEntriesThanConfiguredLimit() throws Exception {
-        Path archive = createZip(List.of(
-                new Entry("one.txt", "one"),
-                new Entry("two.txt", "two"),
-                new Entry("three.txt", "three")));
+        Path archive = createZip(
+            List
+                .of(
+                    new Entry("one.txt", "one"),
+                    new Entry("two.txt", "two"),
+                    new Entry("three.txt", "three")));
 
-        InvalidFileException error = assertThrows(InvalidFileException.class,
-                () -> new ZipProcessor(2, 1_024).extractSafely(archive, tempDir.resolve("output")));
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new ZipProcessor(2, 1_024).extractSafely(archive, tempDir.resolve("output")));
 
         assertEquals("O arquivo ZIP excede o limite de entradas permitidas.", error.getMessage());
         assertFalse(Files.exists(tempDir.resolve("output/three.txt")));
     }
 
     @Test
-    void rejectsZipWhenExtractedBytesExceedConfiguredLimitBeforeWritingRemainder() throws Exception {
-        Path archive = createZip(List.of(
-                new Entry("large.txt", "0123456789"),
-                new Entry("must-not-be-processed.txt", "later")));
+    void rejectsZipWhenExtractedBytesExceedConfiguredLimitBeforeWritingRemainder()
+        throws Exception {
+        Path archive = createZip(
+            List
+                .of(
+                    new Entry("large.txt", "0123456789"),
+                    new Entry("must-not-be-processed.txt", "later")));
 
-        InvalidFileException error = assertThrows(InvalidFileException.class,
-                () -> new ZipProcessor(10, 5).extractSafely(archive, tempDir.resolve("output")));
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new ZipProcessor(10, 5).extractSafely(archive, tempDir.resolve("output")));
 
-        assertEquals("O conteúdo descompactado do ZIP excede o limite permitido.", error.getMessage());
+        assertEquals(
+            "O conteúdo descompactado do ZIP excede o limite permitido.",
+            error.getMessage());
         assertFalse(Files.exists(tempDir.resolve("output/large.txt")));
         assertFalse(Files.exists(tempDir.resolve("output/must-not-be-processed.txt")));
     }
 
     @Test
     void rejectsHighlyExpansibleIgnoredEntryBeforeProcessingFollowingReadme() throws Exception {
-        Path archive = createZip(List.of(
-                new Entry("node_modules/bomb.dat", "x".repeat(64)),
-                new Entry("README.md", "# Demo")));
+        Path archive = createZip(
+            List
+                .of(
+                    new Entry("node_modules/bomb.dat", "x".repeat(64)),
+                    new Entry("README.md", "# Demo")));
 
-        InvalidFileException error = assertThrows(InvalidFileException.class,
-                () -> new ZipProcessor(10, 20).extractSafely(archive, tempDir.resolve("output")));
+        InvalidFileException error = assertThrows(
+            InvalidFileException.class,
+            () -> new ZipProcessor(10, 20).extractSafely(archive, tempDir.resolve("output")));
 
-        assertEquals("O conteúdo descompactado do ZIP excede o limite permitido.", error.getMessage());
+        assertEquals(
+            "O conteúdo descompactado do ZIP excede o limite permitido.",
+            error.getMessage());
         assertFalse(Files.exists(tempDir.resolve("output/README.md")));
     }
 

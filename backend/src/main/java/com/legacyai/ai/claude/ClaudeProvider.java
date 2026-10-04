@@ -1,13 +1,8 @@
 package com.legacyai.ai.claude;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.legacyai.ai.AIAnalysisRequest;
-import com.legacyai.ai.AIAnalysisResponse;
-import com.legacyai.ai.AIProvider;
-import com.legacyai.ai.AnalysisInstructions;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -21,31 +16,39 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.legacyai.ai.AIAnalysisRequest;
+import com.legacyai.ai.AIAnalysisResponse;
+import com.legacyai.ai.AIProvider;
+import com.legacyai.ai.AnalysisInstructions;
 
 @Service
 public class ClaudeProvider implements AIProvider {
     private static final String JSON_PROMPT = """
-            Retorne SOMENTE um objeto JSON válido, sem texto adicional, sem markdown.
-            O JSON deve seguir EXATAMENTE este esquema:
-            {
-              "summary": "string com visão geral",
-              "technologies": ["string", "string"],
-              "architecture": "string descrevendo a arquitetura",
-              "problems": [{"title": "string", "description": "string", "priority": "HIGH"}],
-              "securityRisks": [{"title": "string", "description": "string", "priority": "MEDIUM"}],
-              "recommendations": [{"title": "string", "description": "string", "priority": "HIGH"}],
-              "modernization": ["string", "string"]
-            }
-            Prioridades válidas: HIGH, MEDIUM, LOW.
-            problems, securityRisks e recommendations DEVEM ser listas de objetos com
-            title (string), description (string) e priority (HIGH|MEDIUM|LOW).
-            NUNCA retorne essas listas como listas de strings.
-            """;
+        Retorne SOMENTE um objeto JSON válido, sem texto adicional, sem markdown.
+        O JSON deve seguir EXATAMENTE este esquema:
+        {
+          "summary": "string com visão geral",
+          "technologies": ["string", "string"],
+          "architecture": "string descrevendo a arquitetura",
+          "problems": [{"title": "string", "description": "string", "priority": "HIGH"}],
+          "securityRisks": [{"title": "string", "description": "string", "priority": "MEDIUM"}],
+          "recommendations": [{"title": "string", "description": "string", "priority": "HIGH"}],
+          "modernization": ["string", "string"]
+        }
+        Prioridades válidas: HIGH, MEDIUM, LOW.
+        problems, securityRisks e recommendations DEVEM ser listas de objetos com
+        title (string), description (string) e priority (HIGH|MEDIUM|LOW).
+        NUNCA retorne essas listas como listas de strings.
+        """;
 
     private final String key;
+
     private final String model;
+
     private final RestClient restClient;
 
     public ClaudeProvider(String key, String model) {
@@ -55,10 +58,11 @@ public class ClaudeProvider implements AIProvider {
     }
 
     @Autowired
-    public ClaudeProvider(@Value("${ai.claude.api-key:}") String key,
-                          @Value("${ai.claude.model:claude-haiku-4-5}") String model,
-                          @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
-                          @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
+    public ClaudeProvider(
+        @Value("${ai.claude.api-key:}") String key,
+        @Value("${ai.claude.model:claude-haiku-4-5}") String model,
+        @Value("${ai.timeout.connect-seconds:10}") int connectTimeoutSeconds,
+        @Value("${ai.timeout.read-seconds:90}") int readTimeoutSeconds) {
         this.key = key;
         this.model = model;
         this.restClient = restClient(connectTimeoutSeconds, readTimeoutSeconds);
@@ -81,24 +85,38 @@ public class ClaudeProvider implements AIProvider {
         }
 
         try {
-            Map<String, Object> body = Map.of(
-                    "model", model,
-                    "max_tokens", 4096,
-                    "messages", List.of(Map.of("role", "user", "content",
-                            JSON_PROMPT + "\n\n" + AnalysisInstructions.TEXT + "\n\n" + request.context())));
-            JsonNode response = restClient.post()
-                    .uri("/v1/messages")
-                    .header("x-api-key", key)
-                    .header("anthropic-version", "2023-06-01")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(JsonNode.class);
+            Map<String, Object> body = Map
+                .of(
+                    "model",
+                    model,
+                    "max_tokens",
+                    4096,
+                    "messages",
+                    List
+                        .of(
+                            Map
+                                .of(
+                                    "role",
+                                    "user",
+                                    "content",
+                                    JSON_PROMPT + "\n\n" + AnalysisInstructions.TEXT + "\n\n"
+                                        + request.context())));
+            JsonNode response = restClient
+                .post()
+                .uri("/v1/messages")
+                .header("x-api-key", key)
+                .header("anthropic-version", "2023-06-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(JsonNode.class);
             return normalize(response.at("/content/0/text").asText());
         } catch (RestClientResponseException exception) {
             throw new IllegalStateException(failureMessage(exception.getStatusCode()), exception);
         } catch (Exception exception) {
-            throw new IllegalStateException("Não foi possível conectar ao Claude. Tente novamente mais tarde.", exception);
+            throw new IllegalStateException(
+                "Não foi possível conectar ao Claude. Tente novamente mais tarde.",
+                exception);
         }
     }
 
@@ -106,7 +124,8 @@ public class ClaudeProvider implements AIProvider {
         return switch (status.value()) {
             case 401, 403 -> "Claude recusou as credenciais. Verifique ANTHROPIC_API_KEY.";
             case 429 -> "Claude não pôde processar a análise: limite de uso ou créditos esgotados.";
-            default -> "Claude retornou erro HTTP " + status.value() + ". Tente novamente mais tarde.";
+            default ->
+                "Claude retornou erro HTTP " + status.value() + ". Tente novamente mais tarde.";
         };
     }
 
@@ -130,7 +149,8 @@ public class ClaudeProvider implements AIProvider {
                         if (item.isTextual()) {
                             String text = item.asText();
                             ObjectNode reportItem = mapper.createObjectNode();
-                            reportItem.put("title", text.length() > 80 ? text.substring(0, 80) : text);
+                            reportItem
+                                .put("title", text.length() > 80 ? text.substring(0, 80) : text);
                             reportItem.put("description", text);
                             reportItem.put("priority", "MEDIUM");
                             fixed.add(reportItem);
@@ -146,18 +166,25 @@ public class ClaudeProvider implements AIProvider {
     }
 
     private static RestClient restClient(int connectTimeoutSeconds, int readTimeoutSeconds) {
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(Timeout.ofSeconds(connectTimeoutSeconds))
-                .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
-                .build();
-        return RestClient.builder()
-                .baseUrl("https://api.anthropic.com")
-                .requestFactory(new HttpComponentsClientHttpRequestFactory(HttpClients.custom()
+        RequestConfig requestConfig = RequestConfig
+            .custom()
+            .setConnectTimeout(Timeout.ofSeconds(connectTimeoutSeconds))
+            .setResponseTimeout(Timeout.ofSeconds(readTimeoutSeconds))
+            .build();
+        return RestClient
+            .builder()
+            .baseUrl("https://api.anthropic.com")
+            .requestFactory(
+                new HttpComponentsClientHttpRequestFactory(
+                    HttpClients
+                        .custom()
                         .setDefaultRequestConfig(requestConfig)
-                        .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setConnectionManager(
+                            PoolingHttpClientConnectionManagerBuilder
+                                .create()
                                 .setConnectionTimeToLive(TimeValue.ofSeconds(connectTimeoutSeconds))
                                 .build())
                         .build()))
-                .build();
+            .build();
     }
 }

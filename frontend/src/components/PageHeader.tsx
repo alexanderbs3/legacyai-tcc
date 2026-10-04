@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
 type PageHeaderProps = {
-  title: string
-  subtitle?: string
-  action?: ReactNode
-}
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+};
 
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
@@ -15,5 +15,5 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
       </div>
       {action && <div className="page-header-action">{action}</div>}
     </header>
-  )
+  );
 }

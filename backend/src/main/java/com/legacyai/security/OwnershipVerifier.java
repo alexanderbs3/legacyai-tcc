@@ -1,9 +1,10 @@
 package com.legacyai.security;
 
-import com.legacyai.exception.ForbiddenException;
+import java.util.UUID;
+
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
+import com.legacyai.exception.ForbiddenException;
 
 @Component
 public class OwnershipVerifier {
