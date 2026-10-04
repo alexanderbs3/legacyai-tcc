@@ -23,15 +23,18 @@ const MAX_PROJECT_DESCRIPTION_LENGTH = 2000
 function normalizeProjectName(value: string): string {
   let start = 0
   let end = value.length
-  while (start < end && value.charCodeAt(start) <= 0x20) start += 1
-  while (end > start && value.charCodeAt(end - 1) <= 0x20) end -= 1
-  return value.slice(start, end)
+  while (start < end && value.charCodeAt(start) === 0x20) start += 1
+  while (end > start && value.charCodeAt(end - 1) === 0x20) end -= 1
+  return value.slice(start, end).replace(/ +/g, ' ')
 }
 
 function validate(name: string, description: string): FieldErrors {
   const errors: FieldErrors = {}
   if (!name) errors.name = 'Informe o nome do projeto.'
+  else if (name.length < 3) errors.name = 'Digite um nome com pelo menos 3 caracteres.'
   else if (name.length > MAX_PROJECT_NAME_LENGTH) errors.name = `O nome deve ter no máximo ${MAX_PROJECT_NAME_LENGTH} caracteres.`
+  else if (!/^[\p{L}\p{N} ]+$/u.test(name)) errors.name = 'Use somente letras, números e espaços.'
+  else if (!/\p{L}/u.test(name)) errors.name = 'O nome deve conter pelo menos uma letra.'
   if (description.length > MAX_PROJECT_DESCRIPTION_LENGTH) errors.description = `A descrição deve ter no máximo ${MAX_PROJECT_DESCRIPTION_LENGTH} caracteres.`
   return errors
 }
@@ -90,6 +93,7 @@ export function NewProjectPage() {
               label="Nome do projeto"
               placeholder="Ex.: Modernização do ERP"
               value={name}
+              maxLength={MAX_PROJECT_NAME_LENGTH}
               onChange={(event) => {
                 setName(event.target.value)
                 if (fieldErrors.name) setFieldErrors((current) => ({ ...current, name: undefined }))

@@ -121,40 +121,81 @@ test('new project advertises supported files and displays a safe upload error wi
   assert.equal(posts.length, 2)
 })
 
-test('new project normalizes its name before accepting UTF-16 boundaries', async () => {
-  const posts = []
-  const page = mount('NewProjectPage', 'NewProjectPage', {
-    post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
-  })
-  const initial = page.render()
-  const name = find(initial, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
-  const description = find(initial, (item) => item.type === 'textarea')
-  assert.equal(description.props.maxLength, 2000)
-  name.props.onChange({ target: { value: ` \t${'😀'.repeat(75)} \n` } })
-  description.props.onChange({ target: { value: '😀'.repeat(1000) } })
-  await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
-  assert.equal(posts.length, 1)
-  assert.equal(posts[0].payload.name, '😀'.repeat(75))
-  assert.equal(posts[0].payload.name.length, 150)
-  assert.equal(posts[0].payload.description.length, 2000)
-})
+const validProjectNames = [
+  ['LegacyAI', 'LegacyAI'],
+  ['Projeto Legacy 2026', 'Projeto Legacy 2026'],
+  ['Análise Java', 'Análise Java'],
+  ['João Sistema 01', 'João Sistema 01'],
+  ['150 unidades', 'Á'.repeat(150)],
+  ['Unicode suplementar em 150 unidades', '\u{10400}' + 'A'.repeat(148)],
+  ['normalizado', '   Projeto    Legacy   ', 'Projeto Legacy'],
+]
 
-test('new project rejects name 151 and description 2001 without losing values', async () => {
+for (const [label, input, expected = input] of validProjectNames) {
+  test(`new project accepts valid name: ${label}`, async () => {
+    const posts = []
+    const page = mount('NewProjectPage', 'NewProjectPage', {
+      post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
+    })
+    const initial = page.render()
+    const name = find(initial, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
+    assert.equal(name.props.maxLength, 150)
+    name.props.onChange({ target: { value: input } })
+    await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
+    assert.equal(posts.length, 1)
+    assert.equal(posts[0].payload.name, expected)
+  })
+}
+
+const invalidProjectNames = [
+  ['vazio', '', /Informe o nome/],
+  ['espaços', '  ', /Informe o nome/],
+  ['curto', 'ab', /pelo menos 3 caracteres/],
+  ['somente números longos', '888888888', /pelo menos uma letra/],
+  ['somente números', '123', /pelo menos uma letra/],
+  ['arroba', 'Projeto@', /somente letras, números e espaços/],
+  ['exclamação', 'Projeto!', /somente letras, números e espaços/],
+  ['sublinhado', 'Legacy_AI', /somente letras, números e espaços/],
+  ['hífen', 'Legacy-AI', /somente letras, números e espaços/],
+  ['especiais mistos', "~~ #'foo", /somente letras, números e espaços/],
+  ['tab', '\tProjeto\t', /somente letras, números e espaços/],
+  ['newline', '\nProjeto\n', /somente letras, números e espaços/],
+  ['carriage return', '\rProjeto\r', /somente letras, números e espaços/],
+  ['NBSP', '\u00A0Projeto\u00A0', /somente letras, números e espaços/],
+  ['aspas', '"Projeto"', /somente letras, números e espaços/],
+  ['151 unidades', 'A'.repeat(151), /150/],
+]
+
+for (const [label, input, message] of invalidProjectNames) {
+  test(`new project rejects invalid name without losing value: ${label}`, async () => {
+    const posts = []
+    const page = mount('NewProjectPage', 'NewProjectPage', {
+      post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
+    })
+    let view = page.render()
+    find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto').props.onChange({ target: { value: input } })
+    await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
+    view = page.render()
+    const name = find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
+    assert.equal(posts.length, 0)
+    assert.equal(name.props.value, input)
+    assert.match(name.props.error, message)
+  })
+}
+
+test('new project rejects description 2001 without losing its value', async () => {
   const posts = []
   const page = mount('NewProjectPage', 'NewProjectPage', {
     post: async (url, payload) => { posts.push({ url, payload }); return { data: { id: 'project-id' } } },
   })
   let view = page.render()
-  find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto').props.onChange({ target: { value: 'n'.repeat(151) } })
+  find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto').props.onChange({ target: { value: 'Projeto válido' } })
   find(view, (item) => item.type === 'textarea').props.onChange({ target: { value: 'd'.repeat(2001) } })
   await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} })
   view = page.render()
-  const name = find(view, (item) => item.type === 'Input' && item.props.label === 'Nome do projeto')
   const description = find(view, (item) => item.type === 'textarea')
   assert.equal(posts.length, 0)
-  assert.equal(name.props.value.length, 151)
   assert.equal(description.props.value.length, 2001)
-  assert.match(name.props.error, /150/)
   assert.equal(description.props['aria-invalid'], true)
   assert.ok(JSON.stringify(view).includes('2000'))
 })

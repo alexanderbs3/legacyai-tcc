@@ -72,9 +72,14 @@ Response 201: ProjectResponse
 Erros: 400 (validacao)
 ```
 
-`name` é obrigatório, normalizado com remoção de espaços nas extremidades e limitado
-a 150 unidades UTF-16. `description` é limitada a 2000 unidades UTF-16; valor ausente
-ou composto somente por espaços é persistido como string vazia.
+`name` é obrigatório, normalizado exclusivamente pela remoção do espaço ASCII U+0020 nas
+extremidades e pela redução de sequências internas de U+0020 para um único U+0020. Tabs,
+quebras de linha, outros controles e outros espaços Unicode (como NBSP) não são removidos
+e tornam o nome inválido. Após a normalização, o nome deve ter entre 3 e 150 unidades
+UTF-16, conter ao menos uma letra Unicode e aceitar somente letras Unicode, números e o
+espaço ASCII U+0020. `description` é limitada a 2000 unidades UTF-16; valor ausente ou
+composto somente por espaços é persistido como string vazia. A mesma regra de `name` vale
+para `POST` e `PUT`.
 
 ### GET /api/projects/{id}
 

@@ -56,7 +56,7 @@ class ProjectIntegrationTest {
         String token = tokenFor("project-normalization@example.com");
         MvcResult created = mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"  Legacy core  \",\"description\":\"   \"}"))
+                        .content("{\"name\":\"   Legacy    core   \",\"description\":\"   \"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Legacy core"))
                 .andExpect(jsonPath("$.description").value(""))
@@ -65,7 +65,7 @@ class ProjectIntegrationTest {
 
         mockMvc.perform(put("/api/projects/" + id).header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"  Renamed core  \",\"description\":\"\\t \\n\"}"))
+                        .content("{\"name\":\"   Renamed    core   \",\"description\":\"\\t \\n\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Renamed core"))
                 .andExpect(jsonPath("$.description").value(""));
@@ -81,6 +81,30 @@ class ProjectIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value("Requisição inválida"));
+    }
+
+    @Test
+    void rejectsInvalidProjectNamesOnPostAndPut() throws Exception {
+        String token = tokenFor("project-name-validation@example.com");
+
+        mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"888888888\",\"description\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+
+        MvcResult created = mockMvc.perform(post("/api/projects").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Projeto válido\",\"description\":\"\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(put("/api/projects/" + id).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Projeto@\",\"description\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
 
     @Test
