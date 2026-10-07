@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function loadApi(pathname) {
+function loadApi(pathname, storageThrows = false) {
   let onError;
   let redirectedTo;
   const tokens = new Map([['legacyai.auth.token', 'existing-token']]);
@@ -33,9 +33,18 @@ function loadApi(pathname) {
       return { __esModule: true, default: { create: () => client } };
     },
     localStorage: {
-      getItem: (key) => tokens.get(key) ?? null,
-      setItem: (key, value) => tokens.set(key, value),
-      removeItem: (key) => tokens.delete(key),
+      getItem: (key) => {
+        if (storageThrows) throw new DOMException('Blocked', 'SecurityError');
+        return tokens.get(key) ?? null;
+      },
+      setItem: (key, value) => {
+        if (storageThrows) throw new DOMException('Blocked', 'SecurityError');
+        tokens.set(key, value);
+      },
+      removeItem: (key) => {
+        if (storageThrows) throw new DOMException('Blocked', 'SecurityError');
+        tokens.delete(key);
+      },
     },
     window: {
       location: {
@@ -50,6 +59,9 @@ function loadApi(pathname) {
     reject: onError,
     token: () => tokens.get('legacyai.auth.token'),
     redirectedTo: () => redirectedTo,
+    getToken: exports.getToken,
+    setToken: exports.setToken,
+    clearToken: exports.clearToken,
   };
 }
 
@@ -69,5 +81,21 @@ test('401 on protected page clears the token and redirects', async () => {
   const api = loadApi('/dashboard');
   await assert.rejects(api.reject({ response: { status: 401 } }));
   assert.equal(api.token(), undefined);
+  assert.equal(api.redirectedTo(), '/login');
+});
+
+test('403 preserves the authenticated session and does not redirect', async () => {
+  const api = loadApi('/projects/restricted');
+  await assert.rejects(api.reject({ response: { status: 403 } }));
+  assert.equal(api.token(), 'existing-token');
+  assert.equal(api.redirectedTo(), undefined);
+});
+
+test('blocked browser storage does not crash auth or 401 handling', async () => {
+  const api = loadApi('/dashboard', true);
+  assert.equal(api.getToken(), null);
+  assert.equal(api.setToken('new-token'), false);
+  assert.doesNotThrow(() => api.clearToken());
+  await assert.rejects(api.reject({ response: { status: 401 } }));
   assert.equal(api.redirectedTo(), '/login');
 });

@@ -8,7 +8,9 @@ function mount(path, api = {}) {
   const state = [];
   const effects = [];
   const calls = [];
+  const refs = [];
   let slot = 0;
+  let refSlot = 0;
   const element = (type, props) => ({ type, props });
   const source = readFileSync(path, 'utf8');
   const compiled = ts.transpileModule(source, {
@@ -34,9 +36,16 @@ function mount(path, api = {}) {
               },
             ];
           },
+          useRef: (initial) => {
+            const i = refSlot++;
+            if (!(i in refs)) refs[i] = { current: initial };
+            return refs[i];
+          },
           useEffect: (fn) => {
             if (effects.length === 0) effects.push(fn);
           },
+          lazy: () => 'LazyPage',
+          Suspense: 'Suspense',
         };
       if (name === 'react-router-dom')
         return {
@@ -51,7 +60,7 @@ function mount(path, api = {}) {
       if (name === '../services/api')
         return {
           api: {
-            get: (url) => api.get(url),
+            get: (url, config) => api.get(url, config),
             post: async (url, payload) => {
               calls.push({ url, payload });
               return { data: {} };
@@ -60,6 +69,32 @@ function mount(path, api = {}) {
           clearToken: () => {},
           hasToken: () => true,
         };
+      if (name === '../services/analyses')
+        return {
+          deleteAnalysis: async () => {},
+          loadProjectAnalyses: (projectIds, signal) =>
+            Promise.all(
+              projectIds.map(async (projectId) => {
+                try {
+                  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+                  const response = await api.get(`/projects/${projectId}/analyses`, { signal });
+                  return { status: 'fulfilled', value: response.data };
+                } catch (reason) {
+                  return { status: 'rejected', reason };
+                }
+              }),
+            ),
+        };
+      if (name === '../services/httpErrors') {
+        const httpExports = {};
+        vm.runInNewContext(
+          ts.transpileModule(readFileSync('src/services/httpErrors.ts', 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS },
+          }).outputText,
+          { exports: httpExports },
+        );
+        return httpExports;
+      }
       if (name === 'react/jsx-runtime') return { jsx: element, jsxs: element };
       if (name === '../components/Badge')
         return { Badge: ({ children }) => element('Badge', { children }) };
@@ -68,16 +103,20 @@ function mount(path, api = {}) {
       const component = name.split('/').pop();
       return { [component]: component };
     },
+    AbortController,
+    DOMException,
   });
   return {
     render: (name, props = {}) => {
       slot = 0;
+      refSlot = 0;
       return (exports[name] ?? exports.default)(props);
     },
     load: async () => {
       await Promise.all(effects.map((effect) => effect()));
       await new Promise(setImmediate);
     },
+    startEffect: () => effects[0](),
     calls,
   };
 }
@@ -156,7 +195,7 @@ test('Dashboard has an actionable empty analyses state even without projects', a
   assert.ok(all(view, (item) => item.type === 'Link' && item.props.to === '/projects/new').length);
 });
 
-test('Dashboard isolates history errors from project cards', async () => {
+test('Dashboard uses the generic message when analysis requests fail only by network', async () => {
   const page = mount('src/pages/DashboardPage.tsx', {
     get: async (url) => {
       if (url === '/projects') return { data: [{ id: 'p1', name: 'Sistema' }] };
@@ -171,6 +210,112 @@ test('Dashboard isolates history errors from project cards', async () => {
   assert.ok(!text(view).includes('internal client details'));
   assert.ok(text(view).includes('Contagem indisponível'));
   assert.ok(!text(view).includes('0 análises'));
+});
+
+for (const [label, firstFailure, secondFailure] of [
+  [
+    'network before 403',
+    new Error('network detail'),
+    { response: { status: 403, data: { message: 'owner id' } } },
+  ],
+  [
+    '403 before network',
+    { response: { status: 403, data: { message: 'owner id' } } },
+    new Error('network detail'),
+  ],
+]) {
+  test(`Dashboard prioritizes access denied when failures combine ${label}`, async () => {
+    const page = mount('src/pages/DashboardPage.tsx', {
+      get: async (url) => {
+        if (url === '/projects')
+          return {
+            data: [
+              { id: 'first', name: 'Primeiro' },
+              { id: 'second', name: 'Segundo' },
+            ],
+          };
+        throw url.includes('/first/') ? firstFailure : secondFailure;
+      },
+    });
+    page.render('DashboardPage');
+    await page.load();
+    const view = page.render('DashboardPage');
+    assert.ok(
+      text(view).includes('Acesso negado. Você não tem permissão para acessar este recurso.'),
+    );
+    assert.ok(!text(view).includes('network detail'));
+    assert.ok(!text(view).includes('owner id'));
+    assert.ok(text(view).includes('Primeiro'));
+    assert.ok(text(view).includes('Segundo'));
+  });
+}
+
+test('Dashboard preserves valid partial data when another analysis request fails', async () => {
+  const page = mount('src/pages/DashboardPage.tsx', {
+    get: async (url) => {
+      if (url === '/projects')
+        return {
+          data: [
+            { id: 'ok', name: 'Projeto disponível' },
+            { id: 'failed', name: 'Projeto indisponível' },
+          ],
+        };
+      if (url.includes('/ok/'))
+        return { data: [analysis('valid-analysis', 'COMPLETED', '2026-03-06T12:00:00Z')] };
+      throw new Error('network detail');
+    },
+  });
+  page.render('DashboardPage');
+  await page.load();
+  const view = page.render('DashboardPage');
+  assert.ok(text(view).includes('Projeto disponível'));
+  assert.ok(text(view).includes('Projeto indisponível'));
+  assert.ok(
+    all(view, (item) => item.type === 'Link' && item.props.to === '/analyses/valid-analysis')
+      .length,
+  );
+  assert.ok(text(view).includes('Não foi possível carregar as análises recentes.'));
+  assert.ok(text(view).includes('Contagem indisponível'));
+});
+
+test('Dashboard aborts obsolete loading and only applies data from the new load', async () => {
+  const projectRequests = [];
+  const analysisSignals = [];
+  const page = mount('src/pages/DashboardPage.tsx', {
+    get: (url, config) => {
+      if (url === '/projects')
+        return new Promise((resolve) => projectRequests.push({ resolve, signal: config.signal }));
+      analysisSignals.push(config.signal);
+      return Promise.resolve({
+        data: [analysis(`analysis-${url}`, 'COMPLETED', '2026-03-06T12:00:00Z')],
+      });
+    },
+  });
+  page.render('DashboardPage');
+  const firstCleanup = page.startEffect();
+  const firstSignal = projectRequests[0].signal;
+  firstCleanup();
+  assert.equal(firstSignal.aborted, true);
+
+  const secondCleanup = page.startEffect();
+  const secondSignal = projectRequests[1].signal;
+  assert.notEqual(secondSignal, firstSignal);
+  assert.equal(secondSignal.aborted, false);
+
+  projectRequests[1].resolve({ data: [{ id: 'new', name: 'Projeto novo' }] });
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+  projectRequests[0].resolve({ data: [{ id: 'old', name: 'Projeto obsoleto' }] });
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+
+  const view = page.render('DashboardPage');
+  assert.ok(text(view).includes('Projeto novo'));
+  assert.ok(!text(view).includes('Projeto obsoleto'));
+  assert.equal(all(view, (item) => item.type === 'Alert').length, 0);
+  assert.ok(analysisSignals.length > 0);
+  assert.ok(analysisSignals.every((signal) => signal === secondSignal));
+  secondCleanup();
 });
 
 test('mobile navigation has labelled icon controls and a communicating toggle', () => {
@@ -323,6 +468,19 @@ test('history preserves successful rows and warns when project results are parti
   assert.ok(text(view).includes('Disponível'));
   assert.ok(text(view).includes('histórico está incompleto'));
   assert.ok(!text(view).includes('internal client details'));
+  const tableScroller = all(
+    view,
+    (item) => item.type === 'div' && item.props.className?.includes('overflow-x-auto'),
+  )[0];
+  assert.match(tableScroller.props.className, /\brelative\b/);
+  const tableScrollerClasses = tableScroller.props.className.split(/\s+/);
+  for (const className of ['w-full', 'min-w-0', 'max-w-full'])
+    assert.ok(tableScrollerClasses.includes(className));
+  const historyGrid = all(
+    view,
+    (item) => item.type === 'div' && item.props.className?.includes('grid min-w-0 max-w-full'),
+  )[0];
+  assert.ok(historyGrid);
   const remove = all(
     view,
     (item) =>
@@ -410,6 +568,32 @@ test('history does not present a partial empty result as complete absence', asyn
   assert.ok(text(view).includes('histórico está incompleto'));
 });
 
+test('history aborts loading on unmount without rendering cancellation as an error', async () => {
+  let resolveProjects;
+  let requestSignal;
+  const page = mount('src/pages/HistoryPage.tsx', {
+    get: (_url, config) => {
+      requestSignal = config.signal;
+      return new Promise((resolve) => {
+        resolveProjects = resolve;
+      });
+    },
+  });
+  page.render('HistoryPage');
+  const cleanup = page.startEffect();
+  assert.equal(requestSignal.aborted, false);
+  cleanup();
+  assert.equal(requestSignal.aborted, true);
+
+  resolveProjects({ data: [{ id: 'old', name: 'Resultado obsoleto' }] });
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+  const view = page.render('HistoryPage');
+  assert.equal(all(view, (item) => item.type === 'Alert').length, 0);
+  assert.equal(all(view, (item) => item.type === 'EmptyState').length, 0);
+  assert.ok(!text(view).includes('Resultado obsoleto'));
+});
+
 test('repeated delete actions identify their project', async () => {
   const page = mount('src/pages/DashboardPage.tsx', {
     get: async (url) => ({
@@ -468,6 +652,10 @@ test('navigation links styled as buttons do not contain Button controls', () => 
 test('unknown frontend route has a safe fallback and home link', () => {
   const app = mount('src/App.tsx');
   const routes = all(app.render('App'), (item) => item.type === 'Route');
+  const root = routes.find((item) => item.props.path === '/');
+  assert.ok(root);
+  assert.equal(root.props.element.type, 'Navigate');
+  assert.equal(root.props.element.props.to, '/dashboard');
   assert.ok(routes.find((item) => item.props.path === '*'));
   const fallback = mount('src/pages/NotFoundPage.tsx');
   const view = fallback.render('NotFoundPage');

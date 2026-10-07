@@ -7,20 +7,24 @@ const ts = require('typescript');
 function mountPage(files = [{ id: 'file-1', fileName: 'example.txt' }]) {
   const state = [];
   const posts = [];
+  const requests = [];
   let slot = 0;
   const effects = [];
   const node = (type, props) => ({ type, props });
   const api = {
-    get: async (url) => ({
-      data:
-        url === '/ai/providers'
-          ? [
-              { name: 'OPENAI', displayName: 'OPENAI', available: true },
-              { name: 'CLAUDE', displayName: 'CLAUDE', available: true },
-              { name: 'DEEPSEEK', displayName: 'DEEPSEEK', available: true },
-            ]
-          : files,
-    }),
+    get: async (url, config) => {
+      requests.push({ url, config });
+      return {
+        data:
+          url === '/ai/providers'
+            ? [
+                { name: 'OPENAI', displayName: 'OPENAI', available: true },
+                { name: 'CLAUDE', displayName: 'CLAUDE', available: true },
+                { name: 'DEEPSEEK', displayName: 'DEEPSEEK', available: true },
+              ]
+            : files,
+      };
+    },
     post: async (url, body) => {
       posts.push({ url, body });
       return { data: { analysisId: 'new-analysis' } };
@@ -61,16 +65,25 @@ function mountPage(files = [{ id: 'file-1', fileName: 'example.txt' }]) {
           useParams: () => ({ id: 'project-id' }),
         };
       if (name === '../services/api') return { api };
+      if (name === '../services/httpErrors')
+        return { httpErrorMessage: (_error, fallback) => fallback };
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node };
       const component = name.split('/').pop();
       return { [component]: component };
     },
+    AbortController,
   });
   const render = () => {
     slot = 0;
     return exports.NewAnalysisPage();
   };
-  return { render, load: () => Promise.all(effects.map((effect) => effect())), posts };
+  return {
+    render,
+    load: () => Promise.all(effects.map((effect) => effect())),
+    posts,
+    requests,
+    effects,
+  };
 }
 
 function find(node, predicate) {
@@ -80,29 +93,35 @@ function find(node, predicate) {
   return find(node.props?.children, predicate);
 }
 
-test('DeepSeek V4.1 Flash is selectable and submitted by provider name', async () => {
+test('providers use native radio semantics and submit the unchanged provider name', async () => {
   const page = mountPage();
   page.render();
   await page.load();
   await new Promise(setImmediate);
   const initial = page.render();
+  const group = find(initial, (item) => item.type === 'fieldset');
+  assert.ok(group);
+  assert.ok(
+    find(group, (item) => item.type === 'legend' && item.props.children === 'Provedor de IA'),
+  );
   const deepSeek = find(
     initial,
     (item) =>
-      item.type === 'button' &&
-      item.props?.children?.[0]?.props?.children === 'DeepSeek V4.1 Flash',
+      item.type === 'input' && item.props?.type === 'radio' && item.props.value === 'DEEPSEEK',
   );
   assert.ok(deepSeek);
   assert.equal(deepSeek.props.disabled, false);
-  deepSeek.props.onClick();
+  assert.equal(deepSeek.props.name, 'provider');
+  assert.equal(deepSeek.props.checked, false);
+  deepSeek.props.onChange();
   const selected = page.render();
   const selectedDeepSeek = find(
     selected,
     (item) =>
-      item.type === 'button' &&
-      item.props?.children?.[0]?.props?.children === 'DeepSeek V4.1 Flash',
+      item.type === 'input' && item.props?.type === 'radio' && item.props.value === 'DEEPSEEK',
   );
-  assert.equal(selectedDeepSeek.props['aria-pressed'], true);
+  assert.equal(selectedDeepSeek.props.checked, true);
+  assert.ok(JSON.stringify(selected).includes('DeepSeek V4.1 Flash'));
   const submit = find(selected, (item) => item.props?.children === 'Iniciar análise');
   assert.equal(submit.props.disabled, false);
   await submit.props.onClick();
@@ -130,4 +149,14 @@ test('project without files blocks submission and links to adding material', asy
   );
   await submit.props.onClick();
   assert.equal(page.posts.length, 0);
+});
+
+test('provider and project-file requests are aborted on unmount', () => {
+  const page = mountPage();
+  page.render();
+  const cleanups = page.effects.map((effect) => effect());
+  assert.equal(page.requests.length, 2);
+  assert.ok(page.requests.every((request) => !request.config.signal.aborted));
+  for (const cleanup of cleanups) cleanup();
+  assert.ok(page.requests.every((request) => request.config.signal.aborted));
 });

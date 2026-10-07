@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'high' | 'medium' | 'low' | 'success' | 'pending' | 'processing' | 'failed';
+export type BadgeVariant =
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'success'
+  | 'pending'
+  | 'processing'
+  | 'failed';
 
 type BadgeProps = {
   variant: BadgeVariant;

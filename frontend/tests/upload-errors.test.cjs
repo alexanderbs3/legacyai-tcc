@@ -5,11 +5,18 @@ const vm = require('node:vm');
 const ts = require('typescript');
 
 function message(error) {
+  const httpExports = {};
+  vm.runInNewContext(
+    ts.transpileModule(readFileSync('src/services/httpErrors.ts', 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS },
+    }).outputText,
+    { exports: httpExports },
+  );
   const source = readFileSync('src/services/uploadErrors.ts', 'utf8');
   const exports = {};
   vm.runInNewContext(
     ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
-    { exports },
+    { exports, require: () => httpExports },
   );
   return exports.uploadErrorMessage(error, 'Não foi possível enviar o arquivo.');
 }
@@ -47,4 +54,11 @@ test('does not render internal or unexpected response details', () => {
     'Não foi possível enviar o arquivo.',
   );
   assert.equal(message(new Error('network details')), 'Não foi possível enviar o arquivo.');
+});
+
+test('reports upload 403 as access denied without exposing backend details', () => {
+  assert.equal(
+    message({ response: { status: 403, data: { message: 'resource owner id' } } }),
+    'Acesso negado. Você não tem permissão para acessar este recurso.',
+  );
 });

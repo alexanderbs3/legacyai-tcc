@@ -53,15 +53,29 @@ function mount(fileName, exportName, api) {
         };
       if (name === '../services/api') return { api };
       if (name === '../services/uploadErrors') {
+        const httpExports = {};
+        vm.runInNewContext(
+          ts.transpileModule(readFileSync('src/services/httpErrors.ts', 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS },
+          }).outputText,
+          { exports: httpExports },
+        );
         const uploadExports = {};
         vm.runInNewContext(
           ts.transpileModule(readFileSync('src/services/uploadErrors.ts', 'utf8'), {
             compilerOptions: { module: ts.ModuleKind.CommonJS },
           }).outputText,
-          { exports: uploadExports },
+          { exports: uploadExports, require: () => httpExports },
         );
         return uploadExports;
       }
+      if (name === '../services/httpErrors')
+        return {
+          httpErrorMessage: (error, fallback) =>
+            error?.response?.status === 403
+              ? 'Acesso negado. Você não tem permissão para acessar este recurso.'
+              : fallback,
+        };
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node };
       const component = name.split('/').pop();
       return { [component]: component };
@@ -74,6 +88,7 @@ function mount(fileName, exportName, api) {
     },
     setInterval: () => 7,
     clearInterval: () => {},
+    AbortController,
   });
   const render = () => {
     slot = 0;
@@ -138,6 +153,62 @@ test('existing project uploads once and updates the visible file list', async ()
   );
 });
 
+test('existing project accepts an upload exactly at the 70 MiB boundary', async () => {
+  const posts = [];
+  const page = mount('ProjectDetailPage', 'ProjectDetailPage', {
+    get: async (url) => ({
+      data: url.endsWith('/files')
+        ? []
+        : url.endsWith('/analyses')
+          ? []
+          : { id: 'project-id', name: 'Teste', description: '' },
+    }),
+    post: async (url) => {
+      posts.push(url);
+      return { data: { id: 'file-limit', fileName: 'limit.zip', fileSize: 70 * 1024 * 1024 } };
+    },
+  });
+  page.render();
+  await page.load();
+  await flush();
+  const initial = page.render();
+  find(initial, (item) => item.type === 'input' && item.props?.type === 'file').props.onChange({
+    target: { files: [{ name: 'limit.zip', size: 70 * 1024 * 1024 }] },
+  });
+  const form = find(page.render(), (item) => item.type === 'form' && item.props?.onSubmit);
+  await form.props.onSubmit({ preventDefault() {}, currentTarget: { reset() {} } });
+  assert.deepEqual(posts, ['/projects/project-id/files']);
+});
+
+test('existing project blocks an upload above 70 MiB without an HTTP request', async () => {
+  const posts = [];
+  const page = mount('ProjectDetailPage', 'ProjectDetailPage', {
+    get: async (url) => ({
+      data: url.endsWith('/files')
+        ? []
+        : url.endsWith('/analyses')
+          ? []
+          : { id: 'project-id', name: 'Teste', description: '' },
+    }),
+    post: async (url) => {
+      posts.push(url);
+      return { data: {} };
+    },
+  });
+  page.render();
+  await page.load();
+  await flush();
+  const initial = page.render();
+  find(initial, (item) => item.type === 'input' && item.props?.type === 'file').props.onChange({
+    target: { files: [{ name: 'large.zip', size: 70 * 1024 * 1024 + 1 }] },
+  });
+  const form = find(page.render(), (item) => item.type === 'form' && item.props?.onSubmit);
+  await form.props.onSubmit({ preventDefault() {}, currentTarget: { reset() {} } });
+  const invalid = page.render();
+  assert.equal(posts.length, 0);
+  assert.ok(JSON.stringify(invalid).includes('O arquivo deve ter no máximo 70 MB.'));
+});
+
 test('new project advertises supported files and displays a safe upload error with a recovery link', async () => {
   const posts = [];
   const page = mount('NewProjectPage', 'NewProjectPage', {
@@ -171,6 +242,53 @@ test('new project advertises supported files and displays a safe upload error wi
     find(failed, (item) => item.type === 'Link' && item.props.to === '/projects/project-id'),
   );
   assert.equal(posts.length, 2);
+});
+
+test('new project rejects files above 70 MiB before creating the project', async () => {
+  const posts = [];
+  const page = mount('NewProjectPage', 'NewProjectPage', {
+    post: async (url) => {
+      posts.push(url);
+      return { data: { id: 'project-id' } };
+    },
+  });
+  const initial = page.render();
+  find(
+    initial,
+    (item) => item.type === 'Input' && item.props.label === 'Nome do projeto',
+  ).props.onChange({ target: { value: 'Projeto grande' } });
+  find(initial, (item) => item.type === 'input' && item.props?.type === 'file').props.onChange({
+    target: { files: [{ name: 'large.zip', size: 70 * 1024 * 1024 + 1 }] },
+  });
+
+  await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} });
+  const invalid = page.render();
+  const picker = find(invalid, (item) => item.type === 'input' && item.props?.type === 'file');
+  assert.equal(posts.length, 0);
+  assert.equal(picker.props['aria-invalid'], true);
+  assert.equal(picker.props['aria-describedby'], 'project-file-error');
+  assert.ok(JSON.stringify(invalid).includes('O arquivo deve ter no máximo 70 MB.'));
+});
+
+test('new project accepts a file exactly at the 70 MiB boundary', async () => {
+  const posts = [];
+  const page = mount('NewProjectPage', 'NewProjectPage', {
+    post: async (url) => {
+      posts.push(url);
+      return { data: url === '/projects' ? { id: 'project-id' } : {} };
+    },
+  });
+  const initial = page.render();
+  find(
+    initial,
+    (item) => item.type === 'Input' && item.props.label === 'Nome do projeto',
+  ).props.onChange({ target: { value: 'Projeto limite' } });
+  find(initial, (item) => item.type === 'input' && item.props?.type === 'file').props.onChange({
+    target: { files: [{ name: 'limit.zip', size: 70 * 1024 * 1024 }] },
+  });
+
+  await find(page.render(), (item) => item.type === 'form').props.onSubmit({ preventDefault() {} });
+  assert.deepEqual(posts, ['/projects', '/projects/project-id/files']);
 });
 
 const validProjectNames = [

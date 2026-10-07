@@ -1,23 +1,22 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Plataforma inteligente para análise de sistemas legados" />
-    <meta name="theme-color" content="#0f1b2d" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <meta name="theme-color" content="#0e1014" />
     <title>LegacyAI</title>
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('legacyai.theme')
-          if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored)
+          var root = document.documentElement;
+          var theme = localStorage.getItem('legacyai.theme');
+          root.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+          if (localStorage.getItem('legacyai.sidebar') === 'collapsed')
+            root.setAttribute('data-sidebar', 'collapsed');
         } catch (error) {}
-      })()
+      })();
     </script>
   </head>
   <body>

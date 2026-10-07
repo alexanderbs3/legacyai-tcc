@@ -1,3 +1,5 @@
+import { httpErrorMessage } from './httpErrors';
+
 type ResponseHeaders = Record<string, unknown> & { get?: (name: string) => unknown };
 type AuthError = {
   response?: {
@@ -42,6 +44,9 @@ export function authErrorMessage(error: unknown, fallback: string): string {
   }
   if (response.status === 429) {
     return rateLimitMessage(response.headers);
+  }
+  if (response.status === 403) {
+    return httpErrorMessage(error, fallback);
   }
   if (
     response.status === 400 &&

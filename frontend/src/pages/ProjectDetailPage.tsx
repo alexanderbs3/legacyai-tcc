@@ -2,28 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
-import { Badge } from '../components/Badge';
-import { Breadcrumb } from '../components/Breadcrumb';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { EmptyState } from '../components/EmptyState';
-import { Icon } from '../components/Icon';
-import { PageHeader } from '../components/PageHeader';
-import { Spinner } from '../components/Spinner';
+import { ArrowRight, FileText, FileUp, Plus } from 'lucide-react';
+import { Alert } from '../components/feedback/Alert';
+import { EmptyState } from '../components/feedback/EmptyState';
+import { DetailSkeleton } from '../components/feedback/Skeletons';
+import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { PageHeader } from '../components/ui/PageHeader';
+import { StatusBadge } from '../components/ui/StatusBadge';
 import { api } from '../services/api';
-import { uploadErrorMessage } from '../services/uploadErrors';
+import { httpErrorMessage, isForbiddenError } from '../services/httpErrors';
+import { MAX_UPLOAD_FILE_SIZE, uploadErrorMessage } from '../services/uploadErrors';
 import type { AnalysisSummary } from '../types/analysis';
 import type { Project, UploadedFile } from '../types/project';
-
-function statusVariant(status: AnalysisSummary['status']) {
-  return status === 'COMPLETED'
-    ? 'success'
-    : status === 'FAILED'
-      ? 'failed'
-      : status === 'PROCESSING'
-        ? 'processing'
-        : ('pending' as const);
-}
 
 export function ProjectDetailPage() {
   const { id } = useParams();
@@ -31,40 +23,82 @@ export function ProjectDetailPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [error, setError] = useState('');
+  const [detailsError, setDetailsError] = useState('');
+  const [loadedProjectId, setLoadedProjectId] = useState<string>();
   const [file, setFile] = useState<File>();
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<number>();
   const [uploadError, setUploadError] = useState('');
   const uploadInFlight = useRef(false);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Project>(`/projects/${id}`),
-      api.get<UploadedFile[]>(`/projects/${id}/files`),
-      api.get<AnalysisSummary[]>(`/projects/${id}/analyses`),
-    ])
-      .then(([projectResponse, filesResponse, analysesResponse]) => {
-        setProject(projectResponse.data);
-        setFiles(filesResponse.data);
-        setAnalyses(analysesResponse.data);
-      })
-      .catch(() => setError('Não foi possível carregar o projeto.'));
+    let active = true;
+    const controller = new AbortController();
+    Promise.allSettled([
+      api.get<Project>(`/projects/${id}`, { signal: controller.signal }),
+      api.get<UploadedFile[]>(`/projects/${id}/files`, { signal: controller.signal }),
+      api.get<AnalysisSummary[]>(`/projects/${id}/analyses`, { signal: controller.signal }),
+    ]).then(([projectResult, filesResult, analysesResult]) => {
+      if (!active) return;
+      if (projectResult.status === 'rejected') {
+        setProject(undefined);
+        setFiles([]);
+        setAnalyses([]);
+        setError(httpErrorMessage(projectResult.reason, 'Não foi possível carregar o projeto.'));
+        setDetailsError('');
+        setLoadedProjectId(id);
+        return;
+      }
+      setProject(projectResult.value.data);
+      setFiles(filesResult.status === 'fulfilled' ? filesResult.value.data : []);
+      setAnalyses(analysesResult.status === 'fulfilled' ? analysesResult.value.data : []);
+      setError('');
+      if (filesResult.status === 'rejected' || analysesResult.status === 'rejected') {
+        const forbiddenResult = [filesResult, analysesResult].find(
+          (result) => result.status === 'rejected' && isForbiddenError(result.reason),
+        );
+        setDetailsError(
+          forbiddenResult?.status === 'rejected'
+            ? httpErrorMessage(forbiddenResult.reason, '')
+            : 'Parte dos dados do projeto não pôde ser carregada. Tente novamente.',
+        );
+      } else {
+        setDetailsError('');
+      }
+      setLoadedProjectId(id);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [id]);
+
+  const currentProject = loadedProjectId === id ? project : undefined;
+  const currentError = loadedProjectId === id ? error : '';
+  const currentDetailsError = loadedProjectId === id ? detailsError : '';
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!id || !file || uploadInFlight.current) return;
+    if (file.size > MAX_UPLOAD_FILE_SIZE) {
+      setUploadError('O arquivo deve ter no máximo 70 MB.');
+      return;
+    }
     uploadInFlight.current = true;
     setUploading(true);
     setUploadError('');
-    setUploadProgress(0);
+    setUploadProgress(undefined);
     const formElement = event.currentTarget;
     const form = new FormData();
     form.append('file', file);
     try {
       const { data } = await api.post<UploadedFile>(`/projects/${id}/files`, form, {
         onUploadProgress: (progress) =>
-          setUploadProgress(Math.round((progress.loaded / (progress.total || 1)) * 100)),
+          setUploadProgress(
+            progress.total && progress.total > 0
+              ? Math.min(100, Math.round((progress.loaded / progress.total) * 100))
+              : undefined,
+          ),
       });
       setFiles((current) => [data, ...current]);
       setFile(undefined);
@@ -79,40 +113,49 @@ export function ProjectDetailPage() {
     }
   }
 
-  if (!project && !error)
+  if (currentError)
     return (
       <AppShell>
-        <div className="loading-state">
-          <Spinner /> Carregando projeto…
+        <div className="page-enter">
+          <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Projeto' }]} />
+          <Alert role="alert">{currentError}</Alert>
         </div>
       </AppShell>
     );
-  if (error)
+  if (!currentProject)
     return (
       <AppShell>
-        <p className="alert page-enter" role="alert">
-          {error}
-        </p>
+        <DetailSkeleton />
       </AppShell>
     );
   return (
     <AppShell>
       <div className="page-enter">
+        <Breadcrumb
+          items={[{ label: 'Dashboard', to: '/dashboard' }, { label: currentProject.name }]}
+        />
         <PageHeader
-          title={project!.name}
-          subtitle={project!.description || 'Sem descrição informada.'}
+          title={currentProject.name}
+          subtitle={currentProject.description || 'Sem descrição informada.'}
           action={
-            <Link className="button button-primary" to={`/projects/${id}/analyses/new`}>
+            <Link className="btn btn-primary btn-md" to={`/projects/${id}/analyses/new`}>
+              <Plus className="size-4" aria-hidden="true" />
               Nova análise
             </Link>
           }
         />
-        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: project!.name }]} />
-        <div className="detail-sections">
-          <Card className="section-card">
-            <div className="section-heading">
+        {currentDetailsError && (
+          <Alert tone="warning" role="alert" className="mb-6">
+            {currentDetailsError}
+          </Alert>
+        )}
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <Card className="grid gap-5 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
               <h2>Arquivos enviados</h2>
-              <span>{files.length}</span>
+              <span className="mono rounded-full border border-border bg-surface-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                {files.length}
+              </span>
             </div>
             {files.length === 0 ? (
               <EmptyState
@@ -120,14 +163,17 @@ export function ProjectDetailPage() {
                 subtitle="Adicione um arquivo abaixo para disponibilizá-lo para análise."
               />
             ) : (
-              <ul className="file-list">
+              <ul className="divide-y divide-border rounded-md border border-border">
                 {files.map((item) => (
-                  <li className="file-row" key={item.id}>
-                    <div className="row-primary">
-                      <Icon name="description" className="row-icon" />
-                      <span className="mono">{item.fileName}</span>
+                  <li className="flex items-center justify-between gap-3 px-3 py-2.5" key={item.id}>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <FileText
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <span className="mono truncate text-xs">{item.fileName}</span>
                     </div>
-                    <span className="row-secondary">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {(item.fileSize / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}{' '}
                       KB
                     </span>
@@ -136,60 +182,81 @@ export function ProjectDetailPage() {
               </ul>
             )}
             <form onSubmit={upload}>
-              <div className="field">
+              <div className="grid gap-1.5">
                 <label htmlFor="additional-file">Adicionar material ao projeto</label>
-                <input
-                  id="additional-file"
-                  type="file"
-                  accept=".zip,.txt,.md,text/plain,text/markdown"
-                  onChange={(event) => setFile(event.target.files?.[0])}
-                  disabled={uploading}
-                />
+                <label className="dropzone" htmlFor="additional-file">
+                  <FileUp className="size-5 text-primary" aria-hidden="true" />
+                  <strong>{file ? file.name : 'Selecione um arquivo'}</strong>
+                  <span className="text-xs">ZIP, TXT ou MD</span>
+                  <input
+                    id="additional-file"
+                    type="file"
+                    accept=".zip,.txt,.md,text/plain,text/markdown"
+                    onChange={(event) => {
+                      setFile(event.target.files?.[0]);
+                      setUploadError('');
+                    }}
+                    disabled={uploading}
+                  />
+                </label>
               </div>
-              {uploading && <p role="status">Enviando arquivo: {uploadProgress}%</p>}
-              {uploadError && (
-                <p className="alert" role="alert">
-                  {uploadError}
+              {uploading && (
+                <p role="status" className="text-xs text-muted-foreground">
+                  {uploadProgress === undefined
+                    ? 'Enviando arquivo…'
+                    : `Enviando arquivo: ${uploadProgress}%`}
                 </p>
               )}
-              <div className="form-actions">
+              {uploadError && <Alert role="alert">{uploadError}</Alert>}
+              <div className="flex justify-end">
                 <Button type="submit" loading={uploading} disabled={!file}>
                   Adicionar arquivo
                 </Button>
               </div>
             </form>
           </Card>
-          <Card className="section-card">
-            <div className="section-heading">
+          <Card className="grid gap-5 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
               <h2>Análises recentes</h2>
-              <span>{analyses.length}</span>
+              <span className="mono rounded-full border border-border bg-surface-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                {analyses.length}
+              </span>
             </div>
             {analyses.length === 0 ? (
               <EmptyState
                 title="Nenhuma análise ainda"
                 subtitle="Inicie uma análise para gerar um diagnóstico do sistema."
+                action={
+                  <Link className="btn btn-primary btn-md" to={`/projects/${id}/analyses/new`}>
+                    Nova análise
+                  </Link>
+                }
               />
             ) : (
-              <ul className="analysis-list">
+              <ul className="divide-y divide-border rounded-md border border-border">
                 {analyses.map((analysis) => (
-                  <li className="analysis-row" key={analysis.id}>
-                    <div>
-                      <div className="row-primary">
-                        {analysis.provider}{' '}
-                        <Badge variant={statusVariant(analysis.status)}>{analysis.status}</Badge>
+                  <li
+                    className="flex items-center justify-between gap-3 px-3 py-3"
+                    key={analysis.id}
+                  >
+                    <div className="grid min-w-0 gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="mono text-xs">{analysis.provider}</span>
+                        <StatusBadge status={analysis.status} />
                       </div>
-                      <span className="row-secondary">
+                      <span className="text-xs text-muted-foreground">
                         {new Date(analysis.createdAt).toLocaleString('pt-BR')}
                       </span>
                     </div>
                     <Link
+                      className="inline-flex shrink-0 items-center gap-1"
                       to={
                         analysis.status === 'COMPLETED'
                           ? `/analyses/${analysis.id}`
                           : `/analyses/${analysis.id}/processing`
                       }
                     >
-                      Abrir <Icon name="arrow_forward" className="link-icon" />
+                      Abrir <ArrowRight className="size-3.5" aria-hidden="true" />
                     </Link>
                   </li>
                 ))}

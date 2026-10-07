@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function mountReport(result) {
+function mountReport(result, status = 'COMPLETED') {
   const state = [];
   let index = 0;
   let effect;
@@ -37,13 +37,14 @@ function mountReport(result) {
             ];
           },
         };
-      if (name === 'react-router-dom') return { useParams: () => ({ id: 'analysis-id' }) };
+      if (name === 'react-router-dom')
+        return { Link: 'Link', Navigate: 'Navigate', useParams: () => ({ id: 'analysis-id' }) };
       if (name === '../services/api')
         return {
           api: {
             get: async () => ({
               data: {
-                status: 'COMPLETED',
+                status,
                 provider: 'OPENAI',
                 createdAt: '2026-09-28T00:00:00Z',
                 result,
@@ -51,10 +52,13 @@ function mountReport(result) {
             }),
           },
         };
+      if (name === '../services/httpErrors')
+        return { httpErrorMessage: (_error, fallback) => fallback };
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node };
       const component = name.split('/').pop();
       return { [component]: component };
     },
+    AbortController,
   });
   return {
     load: async () => {
@@ -139,4 +143,13 @@ test('renders empty technologies, modernization, and report-item counts', async 
   assert.ok(text.includes('Problemas (0)'));
   assert.ok(text.includes('Riscos de segurança (0)'));
   assert.ok(text.includes('Recomendações (0)'));
+});
+
+test('redirects an unfinished analysis to the polling page', async () => {
+  const page = mountReport(null, 'PROCESSING');
+  await page.load();
+  const rendered = page.render();
+  assert.equal(rendered.type, 'Navigate');
+  assert.equal(rendered.props.to, '/analyses/analysis-id/processing');
+  assert.equal(rendered.props.replace, true);
 });

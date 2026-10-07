@@ -1,25 +1,28 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
-import { Breadcrumb } from '../components/Breadcrumb';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Icon } from '../components/Icon';
-import { Input } from '../components/Input';
-import { PageHeader } from '../components/PageHeader';
+import { FileUp } from 'lucide-react';
+import { Alert } from '../components/feedback/Alert';
+import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
+import { Progress } from '../components/ui/Progress';
+import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
-import { uploadErrorMessage } from '../services/uploadErrors';
+import { httpErrorMessage } from '../services/httpErrors';
+import { MAX_UPLOAD_FILE_SIZE, uploadErrorMessage } from '../services/uploadErrors';
 import type { Project, ProjectRequest } from '../types/project';
 
 type FieldErrors = {
   name?: string;
   description?: string;
+  file?: string;
 };
 
 const MAX_PROJECT_NAME_LENGTH = 150;
 const MAX_PROJECT_DESCRIPTION_LENGTH = 2000;
-
 function normalizeProjectName(value: string): string {
   let start = 0;
   let end = value.length;
@@ -46,11 +49,15 @@ export function NewProjectPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File>();
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<number>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState('');
+  const [validationMessage, setValidationMessage] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,9 +65,23 @@ export function NewProjectPage() {
 
     const normalizedName = normalizeProjectName(name);
     const errors = validate(normalizedName, description);
+    if (file && file.size > MAX_UPLOAD_FILE_SIZE) {
+      errors.file = 'O arquivo deve ter no máximo 70 MB.';
+    }
     setFieldErrors(errors);
-    if (errors.name || errors.description) return;
+    if (errors.name || errors.description || errors.file) {
+      const orderedErrors = [
+        [errors.name, nameRef],
+        [errors.description, descriptionRef],
+        [errors.file, fileRef],
+      ] as const;
+      const firstInvalid = orderedErrors.find(([message]) => message);
+      setValidationMessage(`Corrija os campos destacados. ${firstInvalid![0]}`);
+      firstInvalid![1].current?.focus();
+      return;
+    }
 
+    setValidationMessage('');
     setError('');
     setLoading(true);
     let projectCreated = false;
@@ -76,7 +97,11 @@ export function NewProjectPage() {
         form.append('file', file);
         await api.post(`/projects/${data.id}/files`, form, {
           onUploadProgress: (upload) =>
-            setProgress(Math.round((upload.loaded / (upload.total || 1)) * 100)),
+            setProgress(
+              upload.total && upload.total > 0
+                ? Math.min(100, Math.round((upload.loaded / upload.total) * 100))
+                : undefined,
+            ),
         });
       }
       navigate(`/projects/${data.id}`);
@@ -88,7 +113,7 @@ export function NewProjectPage() {
       setError(
         projectCreated
           ? uploadErrorMessage(cause, limitMessage)
-          : 'Não foi possível criar o projeto.',
+          : httpErrorMessage(cause, 'Não foi possível criar o projeto.'),
       );
     } finally {
       setLoading(false);
@@ -98,15 +123,17 @@ export function NewProjectPage() {
   return (
     <AppShell>
       <div className="page-enter">
+        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Novo projeto' }]} />
         <PageHeader
           title="Novo projeto"
           subtitle="Adicione contexto e um arquivo para começar a investigação."
         />
-        <Breadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Novo projeto' }]} />
-        <Card className="centered-card">
+        <Card className="mx-auto max-w-2xl p-6 sm:p-8">
           <form onSubmit={submit} noValidate>
             <Input
               label="Nome do projeto"
+              ref={nameRef}
+              name="name"
               placeholder="Ex.: Modernização do ERP"
               value={name}
               maxLength={MAX_PROJECT_NAME_LENGTH}
@@ -118,10 +145,12 @@ export function NewProjectPage() {
               error={fieldErrors.name}
             />
 
-            <div className="field">
+            <div className="grid gap-1.5">
               <label htmlFor="project-description">Descrição</label>
               <textarea
                 id="project-description"
+                ref={descriptionRef}
+                className="control"
                 placeholder="Descreva brevemente o sistema e seu contexto."
                 value={description}
                 maxLength={MAX_PROJECT_DESCRIPTION_LENGTH}
@@ -134,32 +163,45 @@ export function NewProjectPage() {
                 }}
               />
               {fieldErrors.description && (
-                <p id="project-description-error" className="field-error">
+                <p id="project-description-error" className="text-xs text-danger">
                   {fieldErrors.description}
                 </p>
               )}
             </div>
 
-            <div className="field">
+            <div className="grid gap-1.5">
               <label htmlFor="project-file">
                 Arquivo para análise (opcional; pode adicionar depois)
               </label>
-              <label className="upload-dropzone" htmlFor="project-file">
-                <Icon name="upload_file" className="upload-icon" />
+              <label className="dropzone" htmlFor="project-file">
+                <FileUp className="size-6 text-primary" aria-hidden="true" />
                 <strong>Selecione um arquivo para enviar</strong>
-                <span>ZIP, TXT, MD ou README — até 70 MB por arquivo; conteúdo textual UTF-8</span>
+                <span className="text-xs">
+                  ZIP, TXT, MD ou README — até 70 MB por arquivo; conteúdo textual UTF-8
+                </span>
                 <input
                   id="project-file"
-                  className="file-input"
+                  ref={fileRef}
                   type="file"
                   accept=".zip,.txt,.md,text/plain,text/markdown"
-                  onChange={(event) => setFile(event.target.files?.[0])}
+                  aria-invalid={Boolean(fieldErrors.file)}
+                  aria-describedby={fieldErrors.file ? 'project-file-error' : undefined}
+                  onChange={(event) => {
+                    setFile(event.target.files?.[0]);
+                    if (fieldErrors.file)
+                      setFieldErrors((current) => ({ ...current, file: undefined }));
+                  }}
                 />
               </label>
+              {fieldErrors.file && (
+                <p id="project-file-error" className="text-xs text-danger">
+                  {fieldErrors.file}
+                </p>
+              )}
               {file && (
-                <div className="selected-file">
-                  <strong className="mono">{file.name}</strong>
-                  <span>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-secondary px-3 py-2">
+                  <strong className="mono min-w-0 truncate text-xs font-medium">{file.name}</strong>
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {(file.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB
                   </span>
                 </div>
@@ -167,28 +209,33 @@ export function NewProjectPage() {
             </div>
 
             {loading && file && (
-              <div className="upload-progress">
-                <span>Enviando arquivo: {progress}%</span>
-                <div className="progress-track">
-                  <div className="progress-value" style={{ width: `${progress}%` }} />
-                </div>
+              <div className="grid gap-2" role="status">
+                <span className="text-xs text-muted-foreground">
+                  {progress === undefined ? 'Enviando arquivo…' : `Enviando arquivo: ${progress}%`}
+                </span>
+                <Progress value={progress} label="Progresso do envio" />
               </div>
             )}
 
-            <div className="form-actions">
+            <div className="flex justify-end">
               <Button type="submit" loading={loading} disabled={Boolean(createdProjectId)}>
                 Criar e enviar
               </Button>
             </div>
+            <p className="sr-only" aria-live="polite" aria-atomic="true">
+              {validationMessage}
+            </p>
           </form>
 
           {error && (
-            <p className="alert" role="alert">
+            <Alert role="alert" className="mt-5">
               {error}
-            </p>
+            </Alert>
           )}
           {error && createdProjectId && (
-            <Link to={`/projects/${createdProjectId}`}>Abrir projeto para adicionar arquivo</Link>
+            <Link className="mt-3 inline-block" to={`/projects/${createdProjectId}`}>
+              Abrir projeto para adicionar arquivo
+            </Link>
           )}
         </Card>
       </div>

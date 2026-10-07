@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brand } from '../components/Brand';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Input } from '../components/Input';
+import { AuthShell } from '../components/layout/AuthShell';
+import { Alert } from '../components/feedback/Alert';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { api } from '../services/api';
 import { authErrorMessage } from '../services/authErrors';
 import type { RegisterRequest } from '../types/auth';
@@ -55,6 +55,11 @@ export function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
   function clearFieldError(field: keyof FieldErrors) {
     if (fieldErrors[field]) setFieldErrors((current) => ({ ...current, [field]: undefined }));
@@ -64,15 +69,29 @@ export function RegisterPage() {
     event.preventDefault();
     setError('');
 
-    const errors = validate(name, email, password, confirmPassword);
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim();
+    const errors = validate(normalizedName, normalizedEmail, password, confirmPassword);
     setFieldErrors(errors);
-    if (errors.name || errors.email || errors.password || errors.confirmPassword) return;
+    if (errors.name || errors.email || errors.password || errors.confirmPassword) {
+      const orderedErrors = [
+        [errors.name, nameRef],
+        [errors.email, emailRef],
+        [errors.password, passwordRef],
+        [errors.confirmPassword, confirmPasswordRef],
+      ] as const;
+      const firstInvalid = orderedErrors.find(([message]) => message);
+      setValidationMessage(`Corrija os campos destacados. ${firstInvalid![0]}`);
+      firstInvalid![1].current?.focus();
+      return;
+    }
+    setValidationMessage('');
 
     setLoading(true);
     try {
       await api.post<unknown, unknown, RegisterRequest>('/auth/register', {
-        name,
-        email,
+        name: normalizedName,
+        email: normalizedEmail,
         password,
       });
       navigate('/login');
@@ -84,83 +103,91 @@ export function RegisterPage() {
   }
 
   return (
-    <main className="auth-page page-enter">
-      <Card className="auth-card">
-        <Brand to="/login" />
+    <AuthShell>
+      <div className="grid gap-1.5">
+        <h1>Crie sua conta</h1>
+        <p className="text-muted-foreground">Comece a analisar seus sistemas legados.</p>
+      </div>
 
-        <div className="auth-heading">
-          <h1>Crie sua conta</h1>
-        </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <Input
+          label="Nome"
+          ref={nameRef}
+          name="name"
+          autoComplete="name"
+          placeholder="Seu nome"
+          value={name}
+          maxLength={MAX_NAME_LENGTH}
+          onChange={(event) => {
+            setName(event.target.value);
+            clearFieldError('name');
+          }}
+          error={fieldErrors.name}
+        />
 
-        <form onSubmit={handleSubmit} noValidate>
-          <Input
-            label="Nome"
-            placeholder="Seu nome"
-            value={name}
-            maxLength={MAX_NAME_LENGTH}
-            onChange={(event) => {
-              setName(event.target.value);
-              clearFieldError('name');
-            }}
-            error={fieldErrors.name}
-          />
+        <Input
+          label="E-mail"
+          ref={emailRef}
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder="voce@empresa.com"
+          value={email}
+          maxLength={MAX_EMAIL_LENGTH}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            clearFieldError('email');
+          }}
+          error={fieldErrors.email}
+        />
 
-          <Input
-            label="E-mail"
-            type="email"
-            placeholder="voce@empresa.com"
-            value={email}
-            maxLength={MAX_EMAIL_LENGTH}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              clearFieldError('email');
-            }}
-            error={fieldErrors.email}
-          />
+        <Input
+          label="Senha"
+          ref={passwordRef}
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Mínimo de 8 caracteres"
+          value={password}
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={MAX_PASSWORD_LENGTH}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            clearFieldError('password');
+          }}
+          error={fieldErrors.password}
+        />
 
-          <Input
-            label="Senha"
-            type="password"
-            placeholder="Mínimo de 8 caracteres"
-            value={password}
-            minLength={MIN_PASSWORD_LENGTH}
-            maxLength={MAX_PASSWORD_LENGTH}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              clearFieldError('password');
-            }}
-            error={fieldErrors.password}
-          />
+        <Input
+          label="Confirmar senha"
+          ref={confirmPasswordRef}
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Repita sua senha"
+          value={confirmPassword}
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={MAX_PASSWORD_LENGTH}
+          onChange={(event) => {
+            setConfirmPassword(event.target.value);
+            clearFieldError('confirmPassword');
+          }}
+          error={fieldErrors.confirmPassword}
+        />
 
-          <Input
-            label="Confirmar senha"
-            type="password"
-            placeholder="Repita sua senha"
-            value={confirmPassword}
-            minLength={MIN_PASSWORD_LENGTH}
-            maxLength={MAX_PASSWORD_LENGTH}
-            onChange={(event) => {
-              setConfirmPassword(event.target.value);
-              clearFieldError('confirmPassword');
-            }}
-            error={fieldErrors.confirmPassword}
-          />
-
-          <Button type="submit" loading={loading}>
-            Criar conta
-          </Button>
-        </form>
-
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
-
-        <p className="auth-footer">
-          Já tem uma conta? <Link to="/login">Entrar</Link>
+        <Button type="submit" size="lg" loading={loading}>
+          Criar conta
+        </Button>
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          {validationMessage}
         </p>
-      </Card>
-    </main>
+      </form>
+
+      {error && <Alert role="alert">{error}</Alert>}
+
+      <p className="text-center text-muted-foreground">
+        Já tem uma conta? <Link to="/login">Entrar</Link>
+      </p>
+    </AuthShell>
   );
 }

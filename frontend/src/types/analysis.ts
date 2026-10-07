@@ -31,3 +31,13 @@ export interface AnalysisSummary {
   completedAt: string | null;
   errorMessage: string | null;
 }
+
+export interface AnalysisProvider {
+  name: string;
+  displayName: string;
+  available: boolean;
+}
+
+export interface CreateAnalysisResponse {
+  analysisId: string;
+}

@@ -1,6 +1,10 @@
+import { httpErrorMessage } from './httpErrors';
+
 type UploadError = {
   response?: { status?: number; data?: { error?: unknown; message?: unknown } };
 };
+
+export const MAX_UPLOAD_FILE_SIZE = 70 * 1024 * 1024;
 
 export function uploadErrorMessage(error: unknown, fallback: string): string {
   const response = (error as UploadError | null)?.response;
@@ -14,5 +18,5 @@ export function uploadErrorMessage(error: unknown, fallback: string): string {
   ) {
     return message;
   }
-  return fallback;
+  return httpErrorMessage(error, fallback);
 }

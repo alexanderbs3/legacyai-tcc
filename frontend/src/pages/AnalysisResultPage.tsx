@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
-import { Badge } from '../components/Badge';
-import { Breadcrumb } from '../components/Breadcrumb';
-import { Card } from '../components/Card';
-import { PageHeader } from '../components/PageHeader';
-import { Spinner } from '../components/Spinner';
+import { ReportActions } from '../components/analyses/ReportActions';
+import { ReportNav } from '../components/analyses/ReportNav';
+import { Alert } from '../components/feedback/Alert';
+import { ReportSkeleton } from '../components/feedback/Skeletons';
+import { Badge } from '../components/ui/Badge';
+import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { Card } from '../components/ui/Card';
+import { PageHeader } from '../components/ui/PageHeader';
+import { StatusBadge } from '../components/ui/StatusBadge';
 import { api } from '../services/api';
+import { httpErrorMessage } from '../services/httpErrors';
 import type { Analysis, ReportItem } from '../types/analysis';
 
 function priorityVariant(priority: ReportItem['priority']) {
@@ -17,26 +22,31 @@ const priorityLabels: Record<ReportItem['priority'], string> = {
   MEDIUM: 'Média',
   LOW: 'Baixa',
 };
-function ItemSection({ title, items }: { title: string; items: ReportItem[] }) {
+const priorityBorder: Record<ReportItem['priority'], string> = {
+  HIGH: 'border-l-danger',
+  MEDIUM: 'border-l-warning',
+  LOW: 'border-l-success',
+};
+function ItemSection({ id, title, items }: { id: string; title: string; items: ReportItem[] }) {
   return (
-    <Card className="section-card">
+    <Card id={id} className="grid scroll-mt-20 gap-4 p-5 sm:p-6">
       <h2>{`${title} (${items.length})`}</h2>
       {items.length === 0 ? (
-        <p>Nenhum item identificado.</p>
+        <p className="text-muted-foreground">Nenhum item identificado.</p>
       ) : (
-        <div className="issue-list">
+        <div className="grid gap-3">
           {items.map((item, index) => (
             <article
-              className={`issue-card priority-${item.priority.toLowerCase()}`}
+              className={`grid gap-2 rounded-md border border-l-[3px] border-border bg-surface-secondary p-4 ${priorityBorder[item.priority]}`}
               key={`${item.title}-${index}`}
             >
-              <div className="issue-title">
-                <h3>{item.title}</h3>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-sm [overflow-wrap:anywhere]">{item.title}</h3>
                 <Badge variant={priorityVariant(item.priority)}>
                   <span className="mono">{priorityLabels[item.priority]}</span>
                 </Badge>
               </div>
-              <p>{item.description}</p>
+              <p className="text-muted-foreground [overflow-wrap:anywhere]">{item.description}</p>
             </article>
           ))}
         </div>
@@ -49,100 +59,177 @@ export function AnalysisResultPage() {
   const { id } = useParams();
   const [analysis, setAnalysis] = useState<Analysis>();
   const [error, setError] = useState('');
+  const [loadedId, setLoadedId] = useState<string>();
 
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     api
-      .get<Analysis>(`/analyses/${id}`)
-      .then((response) => setAnalysis(response.data))
-      .catch(() => setError('Não foi possível carregar o relatório.'));
+      .get<Analysis>(`/analyses/${id}`, { signal: controller.signal })
+      .then((response) => {
+        if (active) {
+          setAnalysis(response.data);
+          setError('');
+          setLoadedId(id);
+        }
+      })
+      .catch((cause) => {
+        if (active && !controller.signal.aborted) {
+          setAnalysis(undefined);
+          setError(httpErrorMessage(cause, 'Não foi possível carregar o relatório.'));
+          setLoadedId(id);
+        }
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [id]);
 
-  if (error) {
+  const currentAnalysis = loadedId === id ? analysis : undefined;
+  const currentError = loadedId === id ? error : '';
+
+  if (currentError) {
     return (
       <AppShell>
-        <p className="alert page-enter" role="alert">
-          {error}
-        </p>
+        <Alert role="alert" className="page-enter">
+          {currentError}
+        </Alert>
       </AppShell>
     );
   }
-  if (!analysis || analysis.status === 'PENDING' || analysis.status === 'PROCESSING') {
+  if (!currentAnalysis) {
     return (
       <AppShell>
-        <div className="loading-state">
-          <Spinner /> Carregando relatório…
-        </div>
+        <ReportSkeleton />
       </AppShell>
     );
   }
-  if (analysis.status === 'FAILED' || !analysis.result) {
+  if (currentAnalysis.status === 'PENDING' || currentAnalysis.status === 'PROCESSING') {
+    return <Navigate to={`/analyses/${id}/processing`} replace />;
+  }
+  if (currentAnalysis.status === 'FAILED' || !currentAnalysis.result) {
     return (
       <AppShell>
-        <p className="alert page-enter" role="alert">
-          {analysis.errorMessage || 'A análise não produziu um relatório.'}
-        </p>
+        <Alert role="alert" className="page-enter">
+          {currentAnalysis.errorMessage || 'A análise não produziu um relatório.'}
+        </Alert>
       </AppShell>
     );
   }
 
-  const report = analysis.result;
+  const report = currentAnalysis.result;
+  const reportDate = new Date(
+    currentAnalysis.completedAt || currentAnalysis.createdAt,
+  ).toLocaleString('pt-BR');
+  const sections = [
+    { id: 'resumo', label: 'Resumo' },
+    { id: 'tecnologias', label: 'Tecnologias' },
+    { id: 'arquitetura', label: 'Arquitetura' },
+    { id: 'problemas', label: 'Problemas' },
+    { id: 'riscos', label: 'Riscos de segurança' },
+    { id: 'recomendacoes', label: 'Recomendações' },
+    { id: 'modernizacao', label: 'Modernização' },
+  ];
 
   return (
     <AppShell>
       <div className="page-enter">
-        <p className="alert notice" role="note">
-          Este relatório contém recomendações automatizadas e deve ser validado por uma pessoa
-          técnica antes de qualquer decisão.
-        </p>
-        <PageHeader
-          title="Relatório de análise"
-          subtitle={`${analysis.provider} · ${new Date(analysis.completedAt || analysis.createdAt).toLocaleString('pt-BR')}`}
-        />
         <Breadcrumb
           items={[
             { label: 'Dashboard', to: '/dashboard' },
-            { label: 'Projeto', to: `/projects/${analysis.projectId}` },
+            { label: 'Projeto', to: `/projects/${currentAnalysis.projectId}` },
             { label: 'Relatório' },
           ]}
         />
-        <div className="report-sections">
-          <Card className="section-card summary-card">
-            <h2>Resumo</h2>
-            <p>{report.summary}</p>
-          </Card>
-          <Card className="section-card">
-            <h2>Tecnologias identificadas</h2>
-            {report.technologies.length === 0 ? (
-              <p>Nenhuma tecnologia identificada no contexto analisado.</p>
-            ) : (
-              <div className="technology-list">
-                {report.technologies.map((item) => (
-                  <span className="technology-chip mono" key={item}>
-                    {item}
-                  </span>
-                ))}
+        <PageHeader
+          title="Relatório de análise"
+          subtitle={`${currentAnalysis.provider} · ${reportDate}`}
+          action={
+            <ReportActions
+              report={report}
+              provider={currentAnalysis.provider}
+              date={reportDate}
+              fileName={`relatorio-legacyai-${currentAnalysis.id}.md`}
+            />
+          }
+        />
+        <Alert tone="info" role="note" className="mb-6">
+          Este relatório contém recomendações automatizadas e deve ser validado por uma pessoa
+          técnica antes de qualquer decisão.
+        </Alert>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
+          <ReportNav items={sections} />
+          <div className="grid gap-6">
+            <Card className="flex flex-wrap items-center gap-x-8 gap-y-3 p-5">
+              <div className="grid gap-1">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <StatusBadge status={currentAnalysis.status} />
               </div>
-            )}
-          </Card>
-          <Card className="section-card">
-            <h2>Arquitetura</h2>
-            <p>{report.architecture}</p>
-          </Card>
-          <ItemSection title="Problemas" items={report.problems} />
-          <ItemSection title="Riscos de segurança" items={report.securityRisks} />
-          <ItemSection title="Recomendações" items={report.recommendations} />
-          <Card className="section-card">
-            <h2>Modernização</h2>
-            {report.modernization.length === 0 ? (
-              <p>Nenhuma ação de modernização identificada no contexto analisado.</p>
-            ) : (
-              <ul className="modernization-list">
-                {report.modernization.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            )}
-          </Card>
+              <div className="grid gap-1">
+                <span className="text-xs text-muted-foreground">Provedor</span>
+                <span className="mono text-xs">{currentAnalysis.provider}</span>
+              </div>
+              <div className="grid gap-1">
+                <span className="text-xs text-muted-foreground">Concluída em</span>
+                <span className="text-sm">{reportDate}</span>
+              </div>
+              <Link className="ml-auto text-sm" to={`/projects/${currentAnalysis.projectId}`}>
+                Ver projeto
+              </Link>
+            </Card>
+            <Card id="resumo" className="grid scroll-mt-20 gap-3 p-5 sm:p-6">
+              <h2>Resumo</h2>
+              <p className="[overflow-wrap:anywhere]">{report.summary}</p>
+            </Card>
+            <Card id="tecnologias" className="grid scroll-mt-20 gap-3 p-5 sm:p-6">
+              <h2>Tecnologias identificadas</h2>
+              {report.technologies.length === 0 ? (
+                <p className="text-muted-foreground">
+                  Nenhuma tecnologia identificada no contexto analisado.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {report.technologies.map((item) => (
+                    <span
+                      className="mono rounded-md border border-border bg-surface-secondary px-2.5 py-1 text-xs"
+                      key={item}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Card>
+            <Card id="arquitetura" className="grid scroll-mt-20 gap-3 p-5 sm:p-6">
+              <h2>Arquitetura</h2>
+              <p className="[overflow-wrap:anywhere]">{report.architecture}</p>
+            </Card>
+            <ItemSection id="problemas" title="Problemas" items={report.problems} />
+            <ItemSection id="riscos" title="Riscos de segurança" items={report.securityRisks} />
+            <ItemSection id="recomendacoes" title="Recomendações" items={report.recommendations} />
+            <Card id="modernizacao" className="grid scroll-mt-20 gap-3 p-5 sm:p-6">
+              <h2>Modernização</h2>
+              {report.modernization.length === 0 ? (
+                <p className="text-muted-foreground">
+                  Nenhuma ação de modernização identificada no contexto analisado.
+                </p>
+              ) : (
+                <ul className="grid gap-2">
+                  {report.modernization.map((item) => (
+                    <li key={item} className="flex gap-2.5">
+                      <span
+                        className="mt-2 size-1.5 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
+                      <span className="[overflow-wrap:anywhere]">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
         </div>
       </div>
     </AppShell>

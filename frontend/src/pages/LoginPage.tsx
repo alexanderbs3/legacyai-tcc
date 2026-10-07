@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brand } from '../components/Brand';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Input } from '../components/Input';
+import { AuthShell } from '../components/layout/AuthShell';
+import { Alert } from '../components/feedback/Alert';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { api, setToken } from '../services/api';
 import { authErrorMessage } from '../services/authErrors';
 import type { AuthResponse, LoginRequest } from '../types/auth';
@@ -30,22 +30,35 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
-    const errors = validate(email, password);
+    const normalizedEmail = email.trim();
+    const errors = validate(normalizedEmail, password);
     setFieldErrors(errors);
-    if (errors.email || errors.password) return;
+    if (errors.email || errors.password) {
+      const firstError = errors.email ?? errors.password!;
+      setValidationMessage(`Corrija os campos destacados. ${firstError}`);
+      (errors.email ? emailRef : passwordRef).current?.focus();
+      return;
+    }
+    setValidationMessage('');
 
     setLoading(true);
     try {
       const { data } = await api.post<AuthResponse, { data: AuthResponse }, LoginRequest>(
         '/auth/login',
-        { email, password },
+        { email: normalizedEmail, password },
       );
-      setToken(data.token);
+      if (!setToken(data.token)) {
+        setError('O navegador bloqueou o armazenamento da sessão. Verifique suas configurações.');
+        return;
+      }
       navigate('/dashboard');
     } catch (cause) {
       setError(authErrorMessage(cause, 'Não foi possível autenticar.'));
@@ -55,56 +68,57 @@ export function LoginPage() {
   }
 
   return (
-    <main className="auth-page page-enter">
-      <Card className="auth-card">
-        <Brand to="/login" />
+    <AuthShell>
+      <div className="grid gap-1.5">
+        <h1>Boas-vindas de volta</h1>
+        <p className="text-muted-foreground">Entre para continuar suas análises.</p>
+      </div>
 
-        <div className="auth-heading">
-          <h1>Boas-vindas de volta</h1>
-        </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <Input
+          label="E-mail"
+          ref={emailRef}
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder="voce@empresa.com"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: undefined }));
+          }}
+          error={fieldErrors.email}
+        />
 
-        <form onSubmit={handleSubmit} noValidate>
-          <Input
-            label="E-mail"
-            type="email"
-            placeholder="voce@empresa.com"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              if (fieldErrors.email)
-                setFieldErrors((current) => ({ ...current, email: undefined }));
-            }}
-            error={fieldErrors.email}
-          />
+        <Input
+          label="Senha"
+          ref={passwordRef}
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="Sua senha"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            if (fieldErrors.password)
+              setFieldErrors((current) => ({ ...current, password: undefined }));
+          }}
+          error={fieldErrors.password}
+        />
 
-          <Input
-            label="Senha"
-            type="password"
-            placeholder="Sua senha"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              if (fieldErrors.password)
-                setFieldErrors((current) => ({ ...current, password: undefined }));
-            }}
-            error={fieldErrors.password}
-          />
-
-          <Button type="submit" loading={loading}>
-            Entrar
-          </Button>
-        </form>
-
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
-
-        <p className="auth-footer">
-          Ainda não tem uma conta? <Link to="/register">Criar conta</Link>
+        <Button type="submit" size="lg" loading={loading}>
+          Entrar
+        </Button>
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          {validationMessage}
         </p>
-      </Card>
-    </main>
+      </form>
+
+      {error && <Alert role="alert">{error}</Alert>}
+
+      <p className="text-center text-muted-foreground">
+        Ainda não tem uma conta? <Link to="/register">Criar conta</Link>
+      </p>
+    </AuthShell>
   );
 }
