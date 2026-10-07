@@ -21,7 +21,7 @@ class SecurityIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void addsSecurityHeadersAndAllowsOnlyTheDevelopmentFrontendOrigin() throws Exception {
+    void addsSecurityHeadersAndAllowsOnlyTheDevelopmentFrontendOrigins() throws Exception {
         mockMvc.perform(post("/api/auth/login").with(request -> {
             request.setRemoteAddr("192.0.2.10");
             return request;
@@ -51,9 +51,47 @@ class SecurityIntegrationTest {
         mockMvc
             .perform(
                 options("/api/auth/login")
-                    .header("Origin", "https://untrusted.example")
+                    .header("Origin", "http://localhost:5174")
+                    .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5174"));
+
+        mockMvc
+            .perform(
+                options("/api/auth/login")
+                    .header("Origin", "http://127.0.0.1:5174")
+                    .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:5174"));
+
+        mockMvc
+            .perform(
+                options("/api/auth/login")
+                    .header("Origin", "http://evil.example")
                     .header("Access-Control-Request-Method", "POST"))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void allowsAuthRequestsFromTheDevelopmentFrontendOnPort5174() throws Exception {
+        mockMvc.perform(post("/api/auth/login").with(request -> {
+            request.setRemoteAddr("192.0.2.11");
+            return request;
+        })
+            .header("Origin", "http://localhost:5174")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"invalid@example.com\",\"password\":\"wrong-password\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5174"));
+
+        mockMvc
+            .perform(
+                post("/api/auth/register")
+                    .header("Origin", "http://127.0.0.1:5174")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:5174"));
     }
 
     @Test

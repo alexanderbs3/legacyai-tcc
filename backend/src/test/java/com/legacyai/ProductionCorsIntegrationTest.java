@@ -19,8 +19,7 @@ class ProductionCorsIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void keepsTheExistingProductionOriginWithoutAddingTheDevelopmentLoopbackOrigin()
-        throws Exception {
+    void keepsThePlaceholderProductionOriginRestricted() throws Exception {
         mockMvc
             .perform(
                 options("/api/auth/login")
@@ -33,6 +32,20 @@ class ProductionCorsIntegrationTest {
             .perform(
                 options("/api/auth/login")
                     .header("Origin", "http://127.0.0.1:5173")
+                    .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden());
+
+        mockMvc
+            .perform(
+                options("/api/auth/login")
+                    .header("Origin", "http://localhost:5174")
+                    .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden());
+
+        mockMvc
+            .perform(
+                options("/api/auth/login")
+                    .header("Origin", "http://127.0.0.1:5174")
                     .header("Access-Control-Request-Method", "POST"))
             .andExpect(status().isForbidden());
     }
