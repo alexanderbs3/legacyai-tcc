@@ -40,4 +40,5 @@ export interface AnalysisProvider {
 
 export interface CreateAnalysisResponse {
   analysisId: string;
+  status: 'PENDING';
 }

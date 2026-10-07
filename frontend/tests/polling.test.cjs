@@ -113,11 +113,16 @@ test('polling stops after COMPLETED and navigates to the report', async () => {
   assert.equal(polling.navigations[0].url, '/analyses/test-id');
   assert.equal(polling.navigations[0].options.replace, true);
   assert.equal(polling.intervalDelay, 3000);
+  assert.equal(polling.calls[0].config.timeout, 10_000);
+  assert.equal(polling.calls[0].config.signal.aborted, false);
 });
 
-test('first transient failure keeps polling and recovers through COMPLETED', async () => {
+test('polling timeout is retried and recovers through COMPLETED', async () => {
+  const timeout = Object.assign(new Error('timeout of 10000ms exceeded'), {
+    code: 'ECONNABORTED',
+  });
   const outcomes = [
-    Promise.reject(new Error('network')),
+    Promise.reject(timeout),
     Promise.resolve({ data: { status: 'PROCESSING' } }),
     Promise.resolve({ data: { status: 'COMPLETED' } }),
   ];
@@ -151,8 +156,38 @@ test('503 is retried on the next polling tick', async () => {
   assert.equal(polling.analysis().status, 'PROCESSING');
 });
 
-test('three consecutive transient failures stop polling with a retry message', async () => {
-  const polling = mountPolling(() => Promise.reject(new Error('network')));
+test('successful polling resets the timeout failure limit', async () => {
+  const timeout = () =>
+    Promise.reject(
+      Object.assign(new Error('timeout of 10000ms exceeded'), { code: 'ECONNABORTED' }),
+    );
+  const outcomes = [
+    timeout,
+    timeout,
+    () => Promise.resolve({ data: { status: 'PROCESSING' } }),
+    timeout,
+    timeout,
+    () => Promise.resolve({ data: { status: 'COMPLETED' } }),
+  ];
+  const polling = mountPolling(() => outcomes.shift()());
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await flush();
+    polling.tick();
+  }
+  await flush();
+
+  assert.equal(polling.error(), '');
+  assert.equal(polling.calls.length, 6);
+  assert.equal(polling.navigations[0].url, '/analyses/test-id');
+});
+
+test('three consecutive timeouts stop polling with a retry message', async () => {
+  const polling = mountPolling(() =>
+    Promise.reject(
+      Object.assign(new Error('timeout of 10000ms exceeded'), { code: 'ECONNABORTED' }),
+    ),
+  );
   await flush();
   polling.tick();
   await flush();

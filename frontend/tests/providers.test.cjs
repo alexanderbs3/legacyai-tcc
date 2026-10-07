@@ -27,7 +27,7 @@ function mountPage(files = [{ id: 'file-1', fileName: 'example.txt' }]) {
     },
     post: async (url, body) => {
       posts.push({ url, body });
-      return { data: { analysisId: 'new-analysis' } };
+      return { data: { analysisId: 'new-analysis', status: 'PENDING' } };
     },
   };
   const source = readFileSync('src/pages/NewAnalysisPage.tsx', 'utf8');

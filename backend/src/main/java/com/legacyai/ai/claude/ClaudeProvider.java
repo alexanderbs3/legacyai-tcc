@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
+import com.legacyai.ai.AIAnalysisResponseValidator;
 import com.legacyai.ai.AIProvider;
 import com.legacyai.ai.AnalysisInstructions;
 
@@ -162,6 +163,7 @@ public class ClaudeProvider implements AIProvider {
                 }
             }
         }
+        AIAnalysisResponseValidator.validate(root);
         return mapper.treeToValue(root, AIAnalysisResponse.class);
     }
 

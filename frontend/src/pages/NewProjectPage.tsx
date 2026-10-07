@@ -170,22 +170,24 @@ export function NewProjectPage() {
             </div>
 
             <div className="grid gap-1.5">
-              <label htmlFor="project-file">
+              <p id="project-file-label" className="text-sm font-medium text-foreground">
                 Arquivo para análise (opcional; pode adicionar depois)
-              </label>
+              </p>
               <label className="dropzone" htmlFor="project-file">
                 <FileUp className="size-6 text-primary" aria-hidden="true" />
-                <strong>Selecione um arquivo para enviar</strong>
-                <span className="text-xs">
-                  ZIP, TXT, MD ou README — até 70 MB por arquivo; conteúdo textual UTF-8
+                <strong id="project-file-action">Selecione um arquivo para enviar</strong>
+                <span id="project-file-hint" className="text-xs">
+                  ZIP, Markdown, TXT ou README sem extensão — até 70 MB; texto em UTF-8. O seletor
+                  pode não listar README, mas ele também é aceito.
                 </span>
                 <input
                   id="project-file"
                   ref={fileRef}
                   type="file"
                   accept=".zip,.txt,.md,text/plain,text/markdown"
+                  aria-labelledby="project-file-label project-file-action"
                   aria-invalid={Boolean(fieldErrors.file)}
-                  aria-describedby={fieldErrors.file ? 'project-file-error' : undefined}
+                  aria-describedby={`project-file-hint${fieldErrors.file ? ' project-file-error' : ''}`}
                   onChange={(event) => {
                     setFile(event.target.files?.[0]);
                     if (fieldErrors.file)

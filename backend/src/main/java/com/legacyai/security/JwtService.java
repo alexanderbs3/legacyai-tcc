@@ -18,14 +18,14 @@ import io.jsonwebtoken.security.Keys;
 
 @Service
 public class JwtService {
-    private final String secret;
+    private final SecretKey signingKey;
 
     private final long expirationMs;
 
     public JwtService(
         @Value("${security.jwt.secret}") String secret,
         @Value("${security.jwt.expiration-ms:3600000}") long expirationMs) {
-        this.secret = secret;
+        this.signingKey = signingKey(secret);
         this.expirationMs = expirationMs;
     }
 
@@ -37,7 +37,7 @@ public class JwtService {
             .claim("email", user.getEmail())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plusMillis(expirationMs)))
-            .signWith(signingKey(), Jwts.SIG.HS256)
+            .signWith(signingKey, Jwts.SIG.HS256)
             .compact();
     }
 
@@ -50,13 +50,13 @@ public class JwtService {
     }
 
     private Claims parseClaims(String token) {
-        return Jwts.parser().verifyWith(signingKey()).build().parseSignedClaims(token).getPayload();
+        return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
     }
 
-    private SecretKey signingKey() {
+    private static SecretKey signingKey(String secret) {
         byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
-            throw new IllegalStateException("JWT_SECRET deve ter pelo menos 32 caracteres");
+            throw new IllegalStateException("JWT_SECRET deve ter pelo menos 32 bytes UTF-8");
         }
         return Keys.hmacShaKeyFor(bytes);
     }

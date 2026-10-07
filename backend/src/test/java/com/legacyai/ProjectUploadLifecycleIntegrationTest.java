@@ -62,6 +62,7 @@ class ProjectUploadLifecycleIntegrationTest {
 
         assertFalse(Files.exists(stored));
         assertTrue(uploadedFiles.findAllByProjectIdOrderByUploadedAtDesc(projectId).isEmpty());
+        assertFalse(Files.exists(uploadDirectory.resolve(".quarantine")));
     }
 
     @Test
@@ -106,6 +107,24 @@ class ProjectUploadLifecycleIntegrationTest {
         mockMvc
             .perform(get("/api/projects/" + projectId).header("Authorization", "Bearer " + token))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void refusesProjectDeletionByAnotherUserAndPreservesBytes() throws Exception {
+        String ownerToken = tokenFor("lifecycle-owner-" + UUID.randomUUID() + "@example.com");
+        String otherToken = tokenFor("lifecycle-other-" + UUID.randomUUID() + "@example.com");
+        UUID projectId = createProject(ownerToken);
+        Path stored = Path
+            .of(upload(projectId, ownerToken, "README.md", "# private").getTemporaryPath());
+
+        mockMvc
+            .perform(
+                delete("/api/projects/" + projectId)
+                    .header("Authorization", "Bearer " + otherToken))
+            .andExpect(status().isForbidden());
+
+        assertTrue(Files.exists(stored));
+        assertFalse(uploadedFiles.findAllByProjectIdOrderByUploadedAtDesc(projectId).isEmpty());
     }
 
     private UploadedFile upload(UUID projectId, String token, String name, String content)

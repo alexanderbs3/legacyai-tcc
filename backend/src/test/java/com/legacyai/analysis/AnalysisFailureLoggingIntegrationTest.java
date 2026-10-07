@@ -199,7 +199,7 @@ class AnalysisFailureLoggingIntegrationTest {
             "Não foi possível concluir a análise. Tente novamente mais tarde.",
             JsonPath.read(response, "$.errorMessage"));
         assertFalse(response.contains(internalPath));
-        assertTrue(output.getAll().contains("NoSuchFileException"));
+        assertTrue(output.getAll().contains("StorageCleanupException"));
         assertFalse(output.getAll().contains(internalPath));
 
         Analysis legacy = new Analysis(UUID.fromString(projectId), "DEEPSEEK");

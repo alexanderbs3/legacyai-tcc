@@ -103,9 +103,10 @@ persistido passa a ser uma string vazia; a operação não possui semântica de 
 
 ```
 Response 204 No Content
-Erros: 403, 404, 500 `STORAGE_ERROR` quando a limpeza física dos uploads não
-pode ser concluída com segurança. A resposta usa mensagem genérica e o projeto
-permanece disponível para evitar remoção lógica sem tratamento dos arquivos.
+Erros: 403, 404, 500 `STORAGE_ERROR` quando os uploads não podem ser movidos
+com segurança para a quarentena transacional. A resposta usa mensagem genérica
+e o projeto permanece disponível. Os bytes só são removidos definitivamente
+após o commit; em rollback, voltam ao caminho original.
 ```
 
 **ProjectResponse:**

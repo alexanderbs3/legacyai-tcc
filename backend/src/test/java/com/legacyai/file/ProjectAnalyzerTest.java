@@ -16,6 +16,7 @@ import com.legacyai.analysis.ProjectContextBuilder;
 import com.legacyai.entity.Project;
 import com.legacyai.entity.UploadedFile;
 import com.legacyai.exception.InvalidFileException;
+import com.legacyai.exception.StorageCleanupException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -65,7 +66,24 @@ class ProjectAnalyzerTest {
 
         assertThrows(
             SecurityException.class,
-            () -> new FileProcessor()
+            () -> processor()
+                .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(file)));
+    }
+
+    @Test
+    void rejectsPersistedSourcePathOutsideStorageBeforeReadingIt() throws Exception {
+        Path outside = Files.createTempFile(tempDir.getParent(), "external-source-", ".txt");
+        Files.writeString(outside, "private content");
+        UploadedFile file = new UploadedFile(
+            UUID.randomUUID(),
+            "README.txt",
+            "text/plain",
+            Files.size(outside),
+            outside.toString());
+
+        assertThrows(
+            StorageCleanupException.class,
+            () -> processor()
                 .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(file)));
     }
 
@@ -88,7 +106,7 @@ class ProjectAnalyzerTest {
             "application/zip",
             Files.size(archive),
             archive.toString());
-        String context = new FileProcessor()
+        String context = processor()
             .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload));
 
         assertTrue(context.contains("// análise técnica"));
@@ -113,7 +131,7 @@ class ProjectAnalyzerTest {
 
         InvalidFileException error = assertThrows(
             InvalidFileException.class,
-            () -> new FileProcessor()
+            () -> processor()
                 .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
         assertTrue(error.getMessage().contains("texto UTF-8"));
     }
@@ -139,7 +157,9 @@ class ProjectAnalyzerTest {
 
         InvalidFileException error = assertThrows(
             InvalidFileException.class,
-            () -> new FileProcessor(new ZipProcessor(10, 10))
+            () -> new FileProcessor(
+                new ZipProcessor(10, 10),
+                new UploadStorage(tempDir.toString()))
                 .processFiles(new Project("Demo", "", UUID.randomUUID()), uploads));
 
         assertTrue(error.getMessage().contains("conteúdo descompactado"));
@@ -158,7 +178,7 @@ class ProjectAnalyzerTest {
 
         InvalidFileException error = assertThrows(
             InvalidFileException.class,
-            () -> new FileProcessor()
+            () -> processor()
                 .processFiles(new Project("Demo", "", UUID.randomUUID()), List.of(upload)));
         assertTrue(error.getMessage().contains("UTF-8"));
     }
@@ -172,5 +192,9 @@ class ProjectAnalyzerTest {
             zip.closeEntry();
         }
         return archive;
+    }
+
+    private FileProcessor processor() {
+        return new FileProcessor(new ZipProcessor(), new UploadStorage(tempDir.toString()));
     }
 }

@@ -27,10 +27,14 @@ src/main/java/com/legacyai/
 │   └── deepseek/                # DeepSeekProvider
 ├── file/
 │   ├── FileService.java         # Validacao do upload, armazenamento e metadados
+│   ├── UploadStorage.java       # Resolucao de paths e quarentena transacional
 │   ├── FileProcessor.java       # Leitura do material para analise
 │   └── ZipProcessor.java        # Extracao segura de ZIP (Zip Slip)
 ├── analysis/
 │   ├── AnalysisService.java     # Orquestracao da analise e atualizacao de status
+│   ├── AnalysisJobService.java  # Despacho e execucao no executor dedicado
+│   ├── AnalysisStateService.java # Transicoes transacionais curtas
+│   ├── AnalysisRecoveryRunner.java # Recuperacao de jobs no startup
 │   └── ProjectContextBuilder.java  # Monta o contexto enviado a IA
 └── project/
     └── ProjectService.java      # CRUD e verificacao de ownership de projetos
@@ -61,9 +65,11 @@ public interface AIProvider {
 ```
 
 - `AnalysisService` seleciona o provider por nome ou usa `OPENAI` quando o request informa `AUTO` (ou não informa provider).
-- Resposta sempre normalizada para `AIAnalysisResponse` dentro da estrategia -- nunca no service.
+- Resposta sempre normalizada e validada contra as sete secoes de `AIAnalysisResponse` dentro da estrategia -- nunca no service.
 - `AnalysisInstructions` reúne as instruções semânticas comuns aos três providers.
-- A análise sem arquivos é rejeitada antes da criação da entidade. Após o HTTP 202, `CompletableFuture.runAsync` processa os arquivos e atualiza status/resultado no próprio processo Java, sem broker externo.
+- A análise sem arquivos é rejeitada antes da criação da entidade. Após o HTTP 202, um `ThreadPoolTaskExecutor` nomeado, limitado e gerenciado pelo Spring processa os arquivos no próprio processo Java, sem broker externo. Rejeições tornam a análise `FAILED`.
+- No startup, análises `PENDING` são reenfileiradas e análises `PROCESSING` sem resultado voltam a `PENDING`; um resultado legado já persistido promove a análise a `COMPLETED`. O claim `PENDING -> PROCESSING` sob lock impede submissões duplicadas no processo.
+- A chamada ao provider ocorre fora de transação. Resultado e transição para `COMPLETED` são persistidos juntos em uma transação curta.
 
 ## Seguranca
 
@@ -76,6 +82,7 @@ public interface AIProvider {
 ## Configuracao e ambiente
 
 - `application.properties`: datasource e Flyway em `localhost:5433`, limite de upload 70 MB/75 MB, `upload.temp-dir`, JWT, modelos e timeouts sem chaves reais. Perfil `prod` define uma origem CORS padrão distinta do fallback de desenvolvimento.
+- O executor de análises usa propriedades `analysis.executor.*` para pool, fila e shutdown gracioso. A migration V2 indexa status/data para a reconciliação de startup.
 - `backend/docker-compose.yml`: PostgreSQL com porta `5433:5432`; backend/frontend rodam fora do Compose.
 - `.env` (local, ignorado): deve ser exportado pelo shell ou configurado no IntelliJ; Spring não o carrega automaticamente. `.env.example` contém apenas placeholders.
 - `POSTGRES_PASSWORD` alimenta o Compose; `SPRING_DATASOURCE_PASSWORD` alimenta Spring e Flyway. Devem coincidir no fluxo local. Chaves: `JWT_SECRET` (UTF-8, ao menos 32 bytes), `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` e `DEEPSEEK_API_KEY`.

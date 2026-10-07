@@ -4,7 +4,8 @@
 
 ## Stack
 
-React 19 / TypeScript 6 / Vite 8 / React Router v6 / Axios
+React 19 / TypeScript 6 / Vite 8 / React Router DOM v7 / Axios
+O roteamento usa as APIs declarativas `<Routes>` e `<Route>`, compatíveis com a estrutura atual.
 Sem Redux no MVP -- estado local com hooks.
 
 ## Estrutura de diretorios
@@ -34,6 +35,7 @@ Logout -> limpar token -> redirect /login
 - **Base URL:** `/api` (proxy Vite em `vite.config.ts` para `localhost:8080`).
 - **Token:** injetado via interceptor em toda requisicao autenticada.
 - **Tipos:** definir interfaces em `src/types/` para cada DTO de resposta.
+- **Polling:** o GET de status usa timeout de 10 segundos e trata timeout como falha transitoria no limite de tres tentativas consecutivas; uploads nao herdam esse timeout curto.
 - **Contrato completo de endpoints:** `../docs/api/contracts.md`.
 
 ## Tipos da API

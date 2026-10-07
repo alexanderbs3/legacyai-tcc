@@ -3,12 +3,14 @@ package com.legacyai.file;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,8 @@ import com.legacyai.security.OwnershipVerifier;
 
 @Service
 public class FileService {
+    private static final Logger log = LoggerFactory.getLogger(FileService.class);
+
     private static final long MAX_FILE_SIZE = 70L * 1024 * 1024;
 
     private final ProjectRepository projects;
@@ -40,7 +44,7 @@ public class FileService {
 
     private final OwnershipVerifier ownership;
 
-    private final Path tempDir;
+    private final UploadStorage storage;
 
     private final long maxTotalSizePerUser;
 
@@ -49,13 +53,13 @@ public class FileService {
         UploadedFileRepository files,
         UserRepository users,
         OwnershipVerifier ownership,
-        @Value("${upload.temp-dir:${java.io.tmpdir}/legacyai-uploads}") String tempDir,
+        UploadStorage storage,
         @Value("${upload.max-total-size-per-user:350MB}") DataSize maxTotalSizePerUser) {
         this.projects = projects;
         this.files = files;
         this.users = users;
         this.ownership = ownership;
-        this.tempDir = Paths.get(tempDir).toAbsolutePath().normalize();
+        this.storage = storage;
         this.maxTotalSizePerUser = maxTotalSizePerUser.toBytes();
     }
 
@@ -71,8 +75,7 @@ public class FileService {
 
         Path stored = null;
         try {
-            Files.createDirectories(tempDir);
-            stored = Files.createTempFile(tempDir, "upload-", ".tmp");
+            stored = storage.createUploadFile();
             registerRollbackCleanup(stored);
             try (var input = file.getInputStream()) {
                 Files.copy(input, stored, StandardCopyOption.REPLACE_EXISTING);
@@ -108,16 +111,39 @@ public class FileService {
 
     public void deleteStoredFilesForProject(UUID projectId) {
         List<UploadedFile> uploads = files.findAllByProjectIdOrderByUploadedAtDesc(projectId);
-        List<Path> paths = uploads.stream().map(this::storedPathWithinUploadDirectory).toList();
-
-        try {
-            for (Path path : paths) {
-                Files.deleteIfExists(path);
-            }
-        } catch (IOException exception) {
+        List<Path> paths = uploads
+            .stream()
+            .map(upload -> storage.resolveStoredPath(upload.getTemporaryPath()))
+            .toList();
+        if (paths.isEmpty()) {
+            files.deleteAll(uploads);
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             throw new StorageCleanupException();
         }
 
+        Path quarantine = null;
+        List<QuarantinedFile> quarantined = new ArrayList<>();
+        try {
+            quarantine = storage.createQuarantineDirectory();
+            for (int index = 0; index < paths.size(); index++) {
+                Path source = paths.get(index);
+                if (Files.exists(source)) {
+                    Path target = quarantine.resolve(index + "-" + source.getFileName());
+                    storage.move(source, target);
+                    quarantined.add(new QuarantinedFile(source, target));
+                }
+            }
+        } catch (IOException exception) {
+            restoreQuietly(quarantined);
+            if (quarantine != null) {
+                removeQuarantineDirectoryQuietly(quarantine);
+            }
+            throw new StorageCleanupException();
+        }
+
+        registerQuarantineCompletion(quarantine, quarantined);
         files.deleteAll(uploads);
     }
 
@@ -170,11 +196,57 @@ public class FileService {
         }
     }
 
-    private Path storedPathWithinUploadDirectory(UploadedFile upload) {
-        Path stored = Path.of(upload.getTemporaryPath()).toAbsolutePath().normalize();
-        if (stored.equals(tempDir) || !stored.startsWith(tempDir)) {
-            throw new StorageCleanupException();
+    private void registerQuarantineCompletion(
+        Path quarantine,
+        List<QuarantinedFile> quarantined) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                cleanupQuarantine(quarantine, quarantined);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    restoreQuietly(quarantined);
+                    removeQuarantineDirectoryQuietly(quarantine);
+                }
+            }
+        });
+    }
+
+    private void cleanupQuarantine(Path quarantine, List<QuarantinedFile> quarantined) {
+        try {
+            for (QuarantinedFile file : quarantined) {
+                Files.deleteIfExists(file.quarantined());
+            }
+            storage.removeEmptyQuarantineDirectories(quarantine);
+        } catch (IOException exception) {
+            log.error("Falha ao remover quarentena de uploads após commit", exception);
         }
-        return stored;
+    }
+
+    private void restoreQuietly(List<QuarantinedFile> quarantined) {
+        for (int index = quarantined.size() - 1; index >= 0; index--) {
+            QuarantinedFile file = quarantined.get(index);
+            try {
+                if (Files.exists(file.quarantined()) && !Files.exists(file.original())) {
+                    storage.move(file.quarantined(), file.original());
+                }
+            } catch (IOException exception) {
+                log.error("Falha ao restaurar upload da quarentena após rollback", exception);
+            }
+        }
+    }
+
+    private void removeQuarantineDirectoryQuietly(Path quarantine) {
+        try {
+            storage.removeEmptyQuarantineDirectories(quarantine);
+        } catch (IOException exception) {
+            log.warn("Não foi possível remover diretório vazio de quarentena", exception);
+        }
+    }
+
+    private record QuarantinedFile(Path original, Path quarantined) {
     }
 }

@@ -104,6 +104,12 @@ function find(node, predicate) {
   if (predicate(node)) return node;
   return find(node.props?.children, predicate);
 }
+
+function all(node, predicate) {
+  if (!node || typeof node !== 'object') return [];
+  if (Array.isArray(node)) return node.flatMap((item) => all(item, predicate));
+  return [...(predicate(node) ? [node] : []), ...all(node.props?.children, predicate)];
+}
 const flush = () => new Promise(setImmediate);
 
 test('existing project uploads once and updates the visible file list', async () => {
@@ -225,10 +231,13 @@ test('new project advertises supported files and displays a safe upload error wi
   });
   const initial = page.render();
   assert.ok(JSON.stringify(initial).includes('70 MB'));
-  assert.ok(JSON.stringify(initial).includes('ZIP, TXT, MD ou README'));
+  assert.ok(JSON.stringify(initial).includes('ZIP, Markdown, TXT ou README sem extensão'));
+  assert.ok(JSON.stringify(initial).includes('seletor pode não listar README'));
   const picker = find(initial, (item) => item.type === 'input' && item.props?.type === 'file');
   assert.ok(picker.props.accept.includes('.txt'));
   assert.ok(!picker.props.accept.includes('.pdf'));
+  assert.equal(picker.props['aria-labelledby'], 'project-file-label project-file-action');
+  assert.equal(picker.props['aria-describedby'], 'project-file-hint');
   find(
     initial,
     (item) => item.type === 'Input' && item.props.label === 'Nome do projeto',
@@ -266,8 +275,54 @@ test('new project rejects files above 70 MiB before creating the project', async
   const picker = find(invalid, (item) => item.type === 'input' && item.props?.type === 'file');
   assert.equal(posts.length, 0);
   assert.equal(picker.props['aria-invalid'], true);
-  assert.equal(picker.props['aria-describedby'], 'project-file-error');
+  assert.equal(picker.props['aria-describedby'], 'project-file-hint project-file-error');
   assert.ok(JSON.stringify(invalid).includes('O arquivo deve ter no máximo 70 MB.'));
+});
+
+test('upload areas use one label and consistently describe extensionless README support', async () => {
+  const newProject = mount('NewProjectPage', 'NewProjectPage', {
+    post: async () => ({ data: {} }),
+  });
+  const newProjectTree = newProject.render();
+  const newProjectPicker = find(
+    newProjectTree,
+    (item) => item.type === 'input' && item.props?.type === 'file',
+  );
+  const newProjectLabels = all(
+    newProjectTree,
+    (node) => node.type === 'label' && node.props?.htmlFor === newProjectPicker.props.id,
+  );
+  assert.equal(newProjectLabels.length, 1);
+
+  const detail = mount('ProjectDetailPage', 'ProjectDetailPage', {
+    get: async (url) => ({
+      data:
+        url.endsWith('/files') || url.endsWith('/analyses')
+          ? []
+          : { id: 'project-id', name: 'Teste', description: '' },
+    }),
+    post: async () => ({ data: {} }),
+  });
+  detail.render();
+  await detail.load();
+  await flush();
+  const detailTree = detail.render();
+  const detailPicker = find(
+    detailTree,
+    (item) => item.type === 'input' && item.props?.type === 'file',
+  );
+  const detailLabels = all(
+    detailTree,
+    (node) => node.type === 'label' && node.props?.htmlFor === detailPicker.props.id,
+  );
+  assert.equal(detailLabels.length, 1);
+  assert.equal(
+    detailPicker.props['aria-labelledby'],
+    'additional-file-label additional-file-action',
+  );
+  assert.equal(detailPicker.props['aria-describedby'], 'additional-file-hint');
+  assert.ok(JSON.stringify(detailTree).includes('ZIP, Markdown, TXT ou README sem extensão'));
+  assert.ok(JSON.stringify(detailTree).includes('seletor pode não listar README'));
 });
 
 test('new project accepts a file exactly at the 70 MiB boundary', async () => {

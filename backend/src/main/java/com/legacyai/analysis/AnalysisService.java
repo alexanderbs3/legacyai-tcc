@@ -1,23 +1,14 @@
 package com.legacyai.analysis;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.legacyai.ai.AIAnalysisRequest;
-import com.legacyai.ai.AIAnalysisResponse;
-import com.legacyai.ai.AIProvider;
 import com.legacyai.dto.AnalysisDetailResponse;
 import com.legacyai.dto.AnalysisSummaryResponse;
 import com.legacyai.dto.CreateAnalysisRequest;
@@ -25,12 +16,10 @@ import com.legacyai.dto.CreateAnalysisResponse;
 import com.legacyai.dto.ProviderResponse;
 import com.legacyai.dto.ReportResultResponse;
 import com.legacyai.entity.Analysis;
-import com.legacyai.entity.AnalysisResult;
 import com.legacyai.entity.AnalysisStatus;
 import com.legacyai.entity.Project;
 import com.legacyai.exception.InvalidFileException;
 import com.legacyai.exception.ResourceNotFoundException;
-import com.legacyai.file.FileProcessor;
 import com.legacyai.repository.AnalysisRepository;
 import com.legacyai.repository.AnalysisResultRepository;
 import com.legacyai.repository.ProjectRepository;
@@ -39,8 +28,6 @@ import com.legacyai.security.OwnershipVerifier;
 
 @Service
 public class AnalysisService {
-    private static final Logger log = LoggerFactory.getLogger(AnalysisService.class);
-
     private static final String GENERIC_FAILURE = "Não foi possível concluir a análise. Tente novamente mais tarde.";
 
     private static final Set<String> SAFE_FAILURE_MESSAGES = Set
@@ -76,9 +63,7 @@ public class AnalysisService {
 
     private final AnalysisResultRepository results;
 
-    private final FileProcessor processor;
-
-    private final Map<String, AIProvider> providers = new HashMap<>();
+    private final AnalysisJobService jobs;
 
     private final OwnershipVerifier ownership;
 
@@ -89,18 +74,16 @@ public class AnalysisService {
         UploadedFileRepository files,
         AnalysisRepository analyses,
         AnalysisResultRepository results,
-        FileProcessor processor,
-        List<AIProvider> providerList,
+        AnalysisJobService jobs,
         OwnershipVerifier ownership,
         ObjectMapper json) {
         this.projects = projects;
         this.files = files;
         this.analyses = analyses;
         this.results = results;
-        this.processor = processor;
+        this.jobs = jobs;
         this.ownership = ownership;
         this.json = json;
-        providerList.forEach(p -> providers.put(p.getProviderName(), p));
     }
 
     public CreateAnalysisResponse create(
@@ -112,48 +95,14 @@ public class AnalysisService {
             .ofNullable(request.provider())
             .filter(p -> !p.equals("AUTO"))
             .orElse("OPENAI");
-        if (!providers.containsKey(provider))
+        if (!jobs.hasProvider(provider))
             throw new InvalidFileException("Provedor indisponível");
         if (files.findAllByProjectIdOrderByUploadedAtDesc(projectId).isEmpty())
             throw new InvalidFileException(
                 "Adicione um arquivo ao projeto antes de iniciar a análise.");
         Analysis analysis = analyses.save(new Analysis(projectId, provider));
-        CompletableFuture.runAsync(() -> process(analysis.getId(), project));
+        jobs.dispatchAfterRecovery(analysis.getId());
         return new CreateAnalysisResponse(analysis.getId(), "PENDING");
-    }
-
-    private void process(UUID analysisId, Project project) {
-        Analysis analysis = analyses.findById(analysisId).orElseThrow();
-        try {
-            analysis.processing();
-            analyses.save(analysis);
-            AIProvider provider = providers.get(analysis.getProvider());
-            if (!provider.isAvailable())
-                throw new IllegalStateException("Provedor não configurado");
-            String context = processor
-                .processFiles(
-                    project,
-                    files.findAllByProjectIdOrderByUploadedAtDesc(project.getId()));
-            AIAnalysisResponse report = provider
-                .analyze(new AIAnalysisRequest(project.getName(), context));
-            results
-                .save(
-                    new AnalysisResult(
-                        analysisId,
-                        report.summary(),
-                        toJson(report.technologies()),
-                        report.architecture(),
-                        toJson(report.problems()),
-                        toJson(report.securityRisks()),
-                        toJson(report.recommendations()),
-                        toJson(report.modernization())));
-            analysis.completed();
-            analyses.save(analysis);
-        } catch (Exception exception) {
-            logFailure(analysis, exception);
-            analysis.failed(publicFailureMessage(exception));
-            analyses.save(analysis);
-        }
     }
 
     public List<AnalysisSummaryResponse> list(UUID userId, UUID projectId) {
@@ -198,31 +147,13 @@ public class AnalysisService {
     }
 
     public List<ProviderResponse> providerList() {
-        return providers
-            .values()
-            .stream()
-            .map(
-                p -> new ProviderResponse(
-                    p.getProviderName(),
-                    p.getProviderName(),
-                    p.isAvailable()))
-            .toList();
+        return jobs.providerList();
     }
 
     private Project owned(UUID userId, UUID projectId) {
         Project project = projects.findById(projectId).orElseThrow(ResourceNotFoundException::new);
         ownership.verify(project.getUserId(), userId);
         return project;
-    }
-
-    private String toJson(Object value) {
-        try {
-            return json.writeValueAsString(value);
-        } catch (Exception exception) {
-            throw new IllegalStateException(
-                "Não foi possível persistir resultado normalizado",
-                exception);
-        }
     }
 
     static String publicFailureMessage(Exception exception) {
@@ -241,41 +172,7 @@ public class AnalysisService {
             : SAFE_FAILURE_MESSAGES.contains(message) ? message : GENERIC_FAILURE;
     }
 
-    private void logFailure(Analysis analysis, Exception exception) {
-        Throwable cause = exception;
-        while (cause.getCause() != null)
-            cause = cause.getCause();
-        if (cause instanceof RestClientResponseException http) {
-            log
-                .error(
-                    "Análise {} falhou: provider={}, httpStatus={}, exception={}, message={}, cause={}",
-                    analysis.getId(),
-                    analysis.getProvider(),
-                    http.getStatusCode().value(),
-                    exception.getClass().getName(),
-                    publicFailureMessage(exception),
-                    cause.getClass().getName());
-        } else if (exception instanceof InvalidFileException && exception.getMessage() != null
-            && SAFE_FAILURE_MESSAGES.contains(exception.getMessage())
-            && exception.getCause() == null) {
-            log
-                .error(
-                    "Análise {} falhou: provider={}, httpStatus=n/a, exception={}, message={}, cause={}",
-                    analysis.getId(),
-                    analysis.getProvider(),
-                    exception.getClass().getName(),
-                    publicFailureMessage(exception),
-                    cause.getClass().getName(),
-                    exception);
-        } else {
-            log
-                .error(
-                    "Análise {} falhou: provider={}, httpStatus=n/a, exception={}, message={}, cause={}",
-                    analysis.getId(),
-                    analysis.getProvider(),
-                    exception.getClass().getName(),
-                    publicFailureMessage(exception),
-                    cause.getClass().getName());
-        }
+    static boolean isSafeFailureMessage(String message) {
+        return SAFE_FAILURE_MESSAGES.contains(message);
     }
 }

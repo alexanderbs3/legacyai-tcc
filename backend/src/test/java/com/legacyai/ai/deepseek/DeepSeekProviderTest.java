@@ -161,6 +161,16 @@ class DeepSeekProviderTest {
     }
 
     @Test
+    void rejectsIncompleteReportsAndWrongSectionTypes() {
+        assertThrows(Exception.class, () -> DeepSeekProvider.normalize("{}"));
+        assertThrows(
+            Exception.class,
+            () -> DeepSeekProvider
+                .normalize(
+                    "{\"summary\":\"s\",\"technologies\":{},\"architecture\":\"a\",\"problems\":[],\"securityRisks\":[],\"recommendations\":[],\"modernization\":[]}"));
+    }
+
+    @Test
     void reportsBalanceAndAuthenticationErrorsWithoutRetry() {
         HttpMock http = new HttpMock();
         when(http.response.toEntity(JsonNode.class))

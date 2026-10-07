@@ -77,6 +77,12 @@ public class Analysis {
         status = AnalysisStatus.PROCESSING;
     }
 
+    public void retry() {
+        status = AnalysisStatus.PENDING;
+        completedAt = null;
+        errorMessage = null;
+    }
+
     public void completed() {
         status = AnalysisStatus.COMPLETED;
         completedAt = Instant.now();

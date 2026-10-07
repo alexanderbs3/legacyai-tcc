@@ -183,15 +183,24 @@ export function ProjectDetailPage() {
             )}
             <form onSubmit={upload}>
               <div className="grid gap-1.5">
-                <label htmlFor="additional-file">Adicionar material ao projeto</label>
+                <p id="additional-file-label" className="text-sm font-medium text-foreground">
+                  Adicionar material ao projeto
+                </p>
                 <label className="dropzone" htmlFor="additional-file">
                   <FileUp className="size-5 text-primary" aria-hidden="true" />
-                  <strong>{file ? file.name : 'Selecione um arquivo'}</strong>
-                  <span className="text-xs">ZIP, TXT ou MD</span>
+                  <strong id="additional-file-action">
+                    {file ? file.name : 'Selecione um arquivo'}
+                  </strong>
+                  <span id="additional-file-hint" className="text-xs">
+                    ZIP, Markdown, TXT ou README sem extensão — até 70 MB. O seletor pode não listar
+                    README, mas ele também é aceito.
+                  </span>
                   <input
                     id="additional-file"
                     type="file"
                     accept=".zip,.txt,.md,text/plain,text/markdown"
+                    aria-labelledby="additional-file-label additional-file-action"
+                    aria-describedby="additional-file-hint"
                     onChange={(event) => {
                       setFile(event.target.files?.[0]);
                       setUploadError('');

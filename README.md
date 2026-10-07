@@ -25,7 +25,7 @@ O resultado tem sete seções: resumo, tecnologias, arquitetura, problemas, risc
 ## Tecnologias e arquitetura
 
 - Backend: Java 21, Spring Boot 3.5.0, Spring Web, Security, Data JPA, Validation, Flyway e Maven.
-- Frontend: React 19, TypeScript 6, Vite 8, React Router 6 e Axios; lint com Oxlint.
+- Frontend: React 19, TypeScript 6, Vite 8, React Router DOM 7 e Axios; lint com Oxlint. O roteamento usa APIs declarativas compatíveis com a estrutura atual.
 - Persistência: PostgreSQL 16 (imagem `postgres:16-alpine` no Compose).
 
 `Frontend → API REST Spring Boot → PostgreSQL → provider de IA selecionado`. O backend é um monólito modular. A criação da análise persiste `PENDING` e responde HTTP 202; o processamento é disparado em tarefa assíncrona no próprio processo Java (`CompletableFuture.runAsync`), atualiza o status e persiste o relatório ou `FAILED`. O frontend consulta o status periodicamente. O MVP não usa Redis, RabbitMQ ou fila externa.

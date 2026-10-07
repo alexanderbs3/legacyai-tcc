@@ -9,17 +9,19 @@ POST /api/projects/{id}/analyses
   -> verificar ownership, provider conhecido e ao menos um arquivo
   -> criar Analysis com status PENDING
   -> retornar 202 Accepted + analysisId imediatamente
-  -> CompletableFuture.runAsync no processo do backend
-     -> Analysis -> PROCESSING
+  -> claim transacional PENDING -> PROCESSING
+  -> ThreadPoolTaskExecutor dedicado e limitado
      -> FileProcessor + ProjectContextBuilder
      -> AIProvider.analyze(AIAnalysisRequest)
-     -> normalizar resposta -> AIAnalysisResponse
-     -> salvar AnalysisResult
-     -> Analysis -> COMPLETED (ou FAILED em erro)
+     -> normalizar e validar resposta -> AIAnalysisResponse
+     -> transacao curta: salvar AnalysisResult + Analysis -> COMPLETED
+     -> Analysis -> FAILED em erro ou rejeicao do executor
 ```
 
 Frontend faz polling em `GET /api/analyses/{id}` ate status final. Não há fila
-externa durável. Projeto sem arquivo recebe HTTP 400 `INVALID_FILE` antes da
+externa durável. No startup, `PENDING` e `PROCESSING` abandonadas são
+reconciliadas e reenfileiradas de forma idempotente; estados terminais não são
+reprocessados. Projeto sem arquivo recebe HTTP 400 `INVALID_FILE` antes da
 criação da análise; arquivo aceito sem texto processável pode resultar em
 `FAILED` após o 202, sem pedir à IA um relatório a partir de contexto vazio.
 
@@ -58,7 +60,10 @@ caracteres Java por padrão (não conta tokens por provider).
 Corresponde ao esquema de `AnalysisResult`:
 `summary / technologies / architecture / problems / securityRisks / recommendations / modernization`
 
-Normalizacao e responsabilidade da estrategia -- nunca do `AnalysisService`.
+Normalizacao e validacao estrutural sao responsabilidade da estrategia -- nunca
+do `AnalysisService`. Um validador comum exige as sete secoes, tipos corretos,
+itens completos e prioridades `HIGH` / `MEDIUM` / `LOW`; listas vazias continuam
+validas.
 
 `AnalysisInstructions` centraliza critérios semânticos comuns para Claude, DeepSeek e OpenAI:
 pt-BR, identificadores técnicos preservados, afirmações baseadas somente no contexto,

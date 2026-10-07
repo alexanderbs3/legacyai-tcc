@@ -49,6 +49,7 @@ if (!resource.getUserId().equals(currentUser.getId())) {
 - Nunca retornar `passwordHash` em nenhuma resposta da API.
 - JWT nao deve expor dados alem de `userId` e `email`.
 - Chave de assinatura JWT via `JWT_SECRET`: texto convertido em bytes UTF-8, com pelo menos 32 bytes para HS256; não se decodifica Base64.
+- A chave é validada ao criar o `JwtService`; valor ausente ou com menos de 32 bytes impede o startup da aplicação.
 - Login retorna `429` e `Retry-After: 300` quando o limite de tentativas por IP e excedido.
 
 ---

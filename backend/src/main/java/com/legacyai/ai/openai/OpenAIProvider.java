@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.legacyai.ai.AIAnalysisRequest;
 import com.legacyai.ai.AIAnalysisResponse;
+import com.legacyai.ai.AIAnalysisResponseValidator;
 import com.legacyai.ai.AIProvider;
 import com.legacyai.ai.AnalysisInstructions;
 
@@ -39,9 +40,6 @@ public class OpenAIProvider implements AIProvider {
     private static final String SYSTEM_PROMPT = """
         Analise o projeto e retorne um relatório no formato JSON especificado.
         """;
-
-    private static final List<String> ITEM_SECTIONS = List
-        .of("problems", "securityRisks", "recommendations");
 
     private static final List<String> REPORT_FIELDS = List
         .of(
@@ -208,39 +206,7 @@ public class OpenAIProvider implements AIProvider {
     static AIAnalysisResponse normalize(String content) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode root = mapper.readTree(content);
-        if (root == null || !root.isObject() || root.size() != REPORT_FIELDS.size()) {
-            throw new IllegalArgumentException(
-                "Relatório deve ser objeto com as sete seções obrigatórias");
-        }
-        for (String field : List.of("summary", "architecture")) {
-            if (!root.path(field).isTextual())
-                throw new IllegalArgumentException(field + " deve ser string");
-        }
-        for (String field : List.of("technologies", "modernization")) {
-            JsonNode values = root.path(field);
-            if (!values.isArray())
-                throw new IllegalArgumentException(field + " deve ser lista de strings");
-            for (int i = 0; i < values.size(); i++) {
-                if (!values.get(i).isTextual())
-                    throw new IllegalArgumentException(field + "[" + i + "] deve ser string");
-            }
-        }
-        for (String field : ITEM_SECTIONS) {
-            JsonNode items = root.path(field);
-            if (!items.isArray())
-                throw new IllegalArgumentException(field + " deve ser lista de objetos");
-            for (int i = 0; i < items.size(); i++) {
-                JsonNode item = items.get(i);
-                if (!item.isObject() || item.size() != ITEM_FIELDS.size()
-                    || !item.path("title").isTextual()
-                    || !item.path("description").isTextual() || !item.path("priority").isTextual()
-                    || !PRIORITIES.contains(item.path("priority").asText())) {
-                    throw new IllegalArgumentException(
-                        field + "[" + i
-                            + "] deve conter title, description e priority (HIGH|MEDIUM|LOW)");
-                }
-            }
-        }
+        AIAnalysisResponseValidator.validate(root);
         return mapper.treeToValue(root, AIAnalysisResponse.class);
     }
 

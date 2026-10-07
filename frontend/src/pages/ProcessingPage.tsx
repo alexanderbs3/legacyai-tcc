@@ -23,6 +23,7 @@ function statusMessage(analysis?: Analysis) {
 }
 
 const MAX_CONSECUTIVE_TRANSIENT_FAILURES = 3;
+const POLLING_REQUEST_TIMEOUT_MS = 10_000;
 
 function isTransientPollingError(error: unknown): boolean {
   const status = (error as { response?: { status?: unknown } } | null)?.response?.status;
@@ -55,6 +56,7 @@ export function ProcessingPage() {
       try {
         const response = await api.get<Analysis>(`/analyses/${id}`, {
           signal: controller.signal,
+          timeout: POLLING_REQUEST_TIMEOUT_MS,
         });
         if (!active || stopped) return;
         transientFailures = 0;

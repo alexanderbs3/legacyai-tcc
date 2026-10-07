@@ -35,7 +35,7 @@ O frontend exibe: “Este relatório contém recomendações automatizadas e dev
 **Entidade:** `AnalysisResult` -- campos compostos em colunas `TEXT`; listas serializadas em JSON.
 **Servico:** `AnalysisService` persiste o resultado apos normalizacao pela estrategia do provedor.
 
-Cada provider extrai e normaliza a resposta externa; se não conseguir produzir o contrato esperado, a análise falha sem persistir relatório. O `AnalysisService` nunca faz parsing da resposta bruta do provider.
+Cada provider extrai e normaliza a resposta externa e aplica o mesmo validador estrutural às sete seções; se não conseguir produzir o contrato esperado, a análise falha sem persistir relatório. O `AnalysisService` nunca faz parsing da resposta bruta do provider. Após a resposta ficar pronta, resultado e estado `COMPLETED` são gravados atomicamente em uma transação curta.
 
 ---
 

@@ -55,7 +55,7 @@ Conhecimento especifico para trabalhar **neste projeto**. Nao e tutorial das tec
 
 - Componentes funcionais com hooks (`useState`, `useEffect`).
 - Tipagem de props e respostas de API com interfaces TypeScript em `src/types/`.
-- Roteamento: React Router v6 -- `<Routes>`, `<Route>`, `useNavigate`, `useParams`.
+- Roteamento: React Router DOM v7, usando as APIs declarativas `<Routes>`, `<Route>`, `useNavigate` e `useParams`.
 
 ### Comunicacao com API
 

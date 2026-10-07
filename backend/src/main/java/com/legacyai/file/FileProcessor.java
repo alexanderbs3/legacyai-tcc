@@ -22,15 +22,14 @@ import com.legacyai.exception.InvalidFileException;
 public class FileProcessor {
     private final ZipProcessor zip;
 
+    private final UploadStorage storage;
+
     private final ProjectContextBuilder builder = new ProjectContextBuilder();
 
     @Autowired
-    public FileProcessor(ZipProcessor zip) {
+    public FileProcessor(ZipProcessor zip, UploadStorage storage) {
         this.zip = zip;
-    }
-
-    public FileProcessor() {
-        this(new ZipProcessor());
+        this.storage = storage;
     }
 
     public String processFiles(Project project, List<UploadedFile> files) throws IOException {
@@ -39,7 +38,7 @@ public class FileProcessor {
             List<Path> selected = new ArrayList<>();
             ZipProcessor.ExtractionBudget zipBudget = zip.newExtractionBudget();
             for (UploadedFile file : files) {
-                Path source = Path.of(file.getTemporaryPath());
+                Path source = storage.resolveStoredPath(file.getTemporaryPath());
                 if (file.getFileName().toLowerCase().endsWith(".zip")) {
                     // ZipProcessor validates every entry against the same extraction root before
                     // writing.

@@ -12,6 +12,7 @@ import com.legacyai.ai.ReportPriority;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -58,10 +59,20 @@ class ClaudeProviderNormalizationTest {
     void normalizesClaudeJsonToTheStandardReportSchema() throws Exception {
         AIAnalysisResponse report = ClaudeProvider
             .normalize(
-                "{\"summary\":\"summary\",\"technologies\":[\"Java\"],\"architecture\":\"monolith\",\"problems\":[{\"title\":\"p\",\"description\":\"d\",\"priority\":\"high\"}],\"securityRisks\":[],\"recommendations\":[],\"modernization\":[\"incremental\"]}");
+                "{\"summary\":\"summary\",\"technologies\":[\"Java\"],\"architecture\":\"monolith\",\"problems\":[{\"title\":\"p\",\"description\":\"d\",\"priority\":\"HIGH\"}],\"securityRisks\":[],\"recommendations\":[],\"modernization\":[\"incremental\"]}");
 
         assertEquals("summary", report.summary());
         assertEquals(ReportPriority.HIGH, report.problems().getFirst().priority());
+    }
+
+    @Test
+    void rejectsIncompleteReportsAndInvalidPriorities() {
+        assertThrows(Exception.class, () -> ClaudeProvider.normalize("{}"));
+        assertThrows(
+            Exception.class,
+            () -> ClaudeProvider
+                .normalize(
+                    "{\"summary\":\"s\",\"technologies\":[],\"architecture\":\"a\",\"problems\":[{\"title\":\"t\",\"description\":\"d\",\"priority\":\"CRITICAL\"}],\"securityRisks\":[],\"recommendations\":[],\"modernization\":[]}"));
     }
 
     @Test
